@@ -299,10 +299,6 @@ impl<'a> Scanner<'a> {
         })
     }
 
-    fn is_alpha(c: char) -> bool {
-        (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_'
-    }
-
     fn string(&mut self) -> Option<Token> {
         while self.peek() != Some(&'"') && self.peek().is_some() {
             if self.peek() == Some(&'\n') {
