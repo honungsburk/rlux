@@ -52,7 +52,7 @@ fn run_prompt() {
         let mut line = String::new();
         match reader.read_line(&mut line) {
             Ok(0) => break, // EOF reached
-            Ok(_) => run(line.trim()),
+            Ok(_) => rlux::run(line.trim()),
             Err(err) => {
                 eprintln!("Error reading line: {}", err);
                 break;
@@ -64,15 +64,6 @@ fn run_prompt() {
 fn run_file(path: &str) -> io::Result<()> {
     let bytes = fs::read(Path::new(path))?;
     let content = str::from_utf8(&bytes).expect("Invalid UTF-8 sequence");
-    run(content);
+    rlux::run(content);
     Ok(())
-}
-
-fn run(source: &str) {
-    let tokens = rlux::scanner::run(source);
-
-    // For now, just print the tokens.
-    for token in tokens {
-        println!("{}", token);
-    }
 }
