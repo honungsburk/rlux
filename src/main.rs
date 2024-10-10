@@ -1,6 +1,10 @@
 use clap::Arg;
 use clap::ArgAction;
 use clap::Command;
+use core::str;
+use std::fs;
+use std::io::{self, BufRead, Write};
+use std::path::Path;
 
 fn main() {
     let matches = Command::new("rlux")
@@ -21,19 +25,54 @@ fn main() {
         .get_matches();
 
     match matches.subcommand() {
-        Some(("run", args)) => {
-            match args.get_one::<String>("filepath") {
-                Some(filepath) => {
-                    println!("Running with file: {}", filepath);
-                    // Add your file processing logic here
-                }
-                None => println!("No filepath was provided"),
+        Some(("run", args)) => match args.get_one::<String>("filepath") {
+            Some(filepath) => {
+                println!("Running with file: {}", filepath);
+                run_file(filepath).expect("Error running file");
             }
-        }
+            None => println!("No filepath was provided"),
+        },
         Some(("repl", _)) => {
             println!("Starting REPL...");
-            // Add your REPL logic here
+            run_prompt();
         }
         _ => println!("No valid subcommand was used"),
+    }
+}
+
+fn run_prompt() {
+    let stdin = io::stdin();
+    let mut stdout = io::stdout();
+    let mut reader = stdin.lock();
+
+    loop {
+        print!("> ");
+        stdout.flush().unwrap();
+
+        let mut line = String::new();
+        match reader.read_line(&mut line) {
+            Ok(0) => break, // EOF reached
+            Ok(_) => run(line.trim()),
+            Err(err) => {
+                eprintln!("Error reading line: {}", err);
+                break;
+            }
+        }
+    }
+}
+
+fn run_file(path: &str) -> io::Result<()> {
+    let bytes = fs::read(Path::new(path))?;
+    let content = str::from_utf8(&bytes).expect("Invalid UTF-8 sequence");
+    run(content);
+    Ok(())
+}
+
+fn run(source: &str) {
+    let tokens = rlux::scanner::run(source);
+
+    // For now, just print the tokens.
+    for token in tokens {
+        println!("{}", token);
     }
 }
