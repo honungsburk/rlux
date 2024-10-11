@@ -1,8 +1,4 @@
-use std::{
-    fmt::{write, Display},
-    iter::Peekable,
-    str::Chars,
-};
+use std::{borrow::Borrow, fmt::Display, iter::Peekable, str::Chars};
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum TokenType {
@@ -273,7 +269,8 @@ impl<'a> Scanner<'a> {
             }
             '"' => self.string(),
             _ if c.is_ascii_digit() => self.number(c),
-            _ if c.is_ascii_alphabetic() || c == '_' => self.identifier(c),
+            // kewwords are reserved identifiers!
+            _ if c.is_ascii_alphabetic() || c == '_' => self.identifier(c).map(fix_keywords),
             _ => {
                 crate::error(self.line, "Unexpected character.");
                 None
@@ -348,5 +345,34 @@ impl<'a> Scanner<'a> {
             .for_each(|c| identifier.push(*c));
 
         self.create_token(TokenType::Identifier(identifier))
+    }
+}
+
+fn fix_keywords(mut token: Token) -> Token {
+    match token.token_type {
+        TokenType::Identifier(s) => {
+            let new_token_type = match s.borrow() {
+                "and" => TokenType::And,
+                "or" => TokenType::Or,
+                "false" => TokenType::False,
+                "true" => TokenType::True,
+                "if" => TokenType::If,
+                "else" => TokenType::Else,
+                "class" => TokenType::Class,
+                "for" => TokenType::For,
+                "while" => TokenType::While,
+                "fun" => TokenType::Fun,
+                "nil" => TokenType::Nil,
+                "print" => TokenType::Print,
+                "return" => TokenType::Return,
+                "super" => TokenType::Super,
+                "this" => TokenType::This,
+                "var" => TokenType::Var,
+                _ => TokenType::Identifier(s),
+            };
+            token.token_type = new_token_type;
+            token
+        }
+        _ => token,
     }
 }
