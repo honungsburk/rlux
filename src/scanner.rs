@@ -101,6 +101,24 @@ pub struct Token {
     line: u32,
 }
 
+impl Token {
+    pub fn new(token_type: TokenType, lexeme: String, line: u32) -> Token {
+        Token {
+            token_type,
+            lexeme,
+            line,
+        }
+    }
+    pub fn from_type(token_type: TokenType) -> Token {
+        let lexeme = token_type.to_string();
+        Token {
+            token_type,
+            lexeme: lexeme,
+            line: 1,
+        }
+    }
+}
+
 impl Display for Token {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         write!(f, "{} {}", self.token_type, self.lexeme)
@@ -200,12 +218,11 @@ impl<'a> Scanner<'a> {
     pub fn run(&mut self) -> Vec<Token> {
         let mut tokens = Vec::new();
         while let Some(c) = self.next() {
-            self.start = self.current;
-
             // let initial_position = self.current_position;
             if let Some(token) = self.scan_token(c) {
                 tokens.push(token);
             }
+            self.start = self.current;
         }
         tokens
     }
@@ -374,5 +391,131 @@ fn fix_keywords(mut token: Token) -> Token {
             token
         }
         _ => token,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_single_char_tokens() {
+        let mut scanner = Scanner::new("(){},.-+;*/");
+        let tokens = scanner.run();
+        let expected = vec![
+            Token::from_type(TokenType::LeftParen),
+            Token::from_type(TokenType::RightParen),
+            Token::from_type(TokenType::LeftBrace),
+            Token::from_type(TokenType::RightBrace),
+            Token::from_type(TokenType::Comma),
+            Token::from_type(TokenType::Dot),
+            Token::from_type(TokenType::Minus),
+            Token::from_type(TokenType::Plus),
+            Token::from_type(TokenType::Semicolon),
+            Token::from_type(TokenType::Star),
+            Token::from_type(TokenType::Slash),
+        ];
+        assert_eq!(tokens, expected);
+    }
+
+    #[test]
+    fn test_two_char_tokens() {
+        let mut scanner = Scanner::new("!= == <= >=");
+        let tokens = scanner.run();
+        let expected = vec![
+            Token::from_type(TokenType::BangEqual),
+            Token::from_type(TokenType::EqualEqual),
+            Token::from_type(TokenType::LessEqual),
+            Token::from_type(TokenType::GreaterEqual),
+        ];
+        assert_eq!(tokens, expected);
+    }
+
+    #[test]
+    fn test_comments() {
+        let mut scanner = Scanner::new("!= // == <= >=");
+        let tokens = scanner.run();
+        let expected = vec![Token::from_type(TokenType::BangEqual)];
+        assert_eq!(tokens, expected);
+    }
+
+    #[test]
+    fn test_logical_operators() {
+        let mut scanner = Scanner::new("false or (false and true)");
+        let tokens = scanner.run();
+        let expected = vec![
+            Token::from_type(TokenType::False),
+            Token::from_type(TokenType::Or),
+            Token::from_type(TokenType::LeftParen),
+            Token::from_type(TokenType::False),
+            Token::from_type(TokenType::And),
+            Token::from_type(TokenType::True),
+            Token::from_type(TokenType::RightParen),
+        ];
+        assert_eq!(tokens, expected);
+    }
+
+    #[test]
+    fn test_string() {
+        let mut scanner = Scanner::new("\"Hello, world!\"");
+        let tokens = scanner.run();
+        let expected = vec![Token::from_type(TokenType::String(
+            "Hello, world!".to_string(),
+        ))];
+        assert_eq!(tokens, expected);
+    }
+
+    #[test]
+    fn test_number_with_dot() {
+        let mut scanner = Scanner::new("123.45");
+        let tokens = scanner.run();
+        let expected = vec![Token::from_type(TokenType::Number(123.45))];
+        assert_eq!(tokens, expected);
+    }
+
+    #[test]
+    fn test_number_without_dot() {
+        let mut scanner = Scanner::new("123");
+        let tokens = scanner.run();
+        let expected = vec![Token::from_type(TokenType::Number(123.0))];
+        assert_eq!(tokens, expected);
+    }
+
+    #[test]
+    fn test_identifier() {
+        let mut scanner = Scanner::new("identifier");
+        let tokens = scanner.run();
+        let expected = vec![Token::from_type(TokenType::Identifier(
+            "identifier".to_string(),
+        ))];
+        assert_eq!(tokens, expected);
+    }
+
+    #[test]
+    fn test_keywords() {
+        let mut scanner = Scanner::new(
+            "and or false true if else class for while fun nil print return super this var",
+        );
+        let tokens = scanner.run();
+        let expected = vec![
+            Token::from_type(TokenType::And),
+            Token::from_type(TokenType::Or),
+            Token::from_type(TokenType::False),
+            Token::from_type(TokenType::True),
+            Token::from_type(TokenType::If),
+            Token::from_type(TokenType::Else),
+            Token::from_type(TokenType::Class),
+            Token::from_type(TokenType::For),
+            Token::from_type(TokenType::While),
+            Token::from_type(TokenType::Fun),
+            Token::from_type(TokenType::Nil),
+            Token::from_type(TokenType::Print),
+            Token::from_type(TokenType::Return),
+            Token::from_type(TokenType::Super),
+            Token::from_type(TokenType::This),
+            Token::from_type(TokenType::Var),
+        ];
+
+        assert_eq!(tokens, expected);
     }
 }
