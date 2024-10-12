@@ -69,14 +69,14 @@ impl StructuralPrinter for Expr {
 #[derive(Debug, Clone, PartialEq)]
 pub enum UnOp {
     Not,
-    Minus,
+    Negate,
 }
 
 impl UnOp {
     pub fn print(&self) -> String {
         let s = match self {
             UnOp::Not => "!",
-            UnOp::Minus => "-",
+            UnOp::Negate => "-",
         };
         return s.to_string();
     }

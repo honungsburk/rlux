@@ -1,7 +1,7 @@
 use std::collections::binary_heap::Iter;
 
 use crate::{
-    expression::{self, Expr},
+    expression::{self, BinOp, Expr, UnOp},
     position::*,
     token::{Token, TokenType},
 };
@@ -93,7 +93,13 @@ fn comparison(p: &mut Parser) -> Expr {
         TokenType::Less,
         TokenType::LessEqual,
     ]) {
-        let operator = p.previous();
+        let operator = match p.previous() {
+            Token::Greater => BinOp::Greater,
+            Token::GreaterEqual => BinOp::GreaterOrEquals,
+            Token::Less => BinOp::Less,
+            Token::LessEqual => BinOp::LessOrEquals,
+            op => panic!("Matched a binary operator that doesn't exist: {}", op),
+        };
         let right = term(p);
         expr = Expr::binary(expr, operator, right);
     }
@@ -105,7 +111,11 @@ fn term(p: &mut Parser) -> Expr {
     let mut expr: Expr = factor(p);
 
     while p.one_of(vec![TokenType::Minus, TokenType::Plus]) {
-        let operator = p.previous();
+        let operator = match p.previous() {
+            Token::Minus => BinOp::Minus,
+            Token::Plus => BinOp::Plus,
+            op => panic!("Matched a binary operator that doesn't exist: {}", op),
+        };
         let right = factor(p);
         expr = Expr::binary(expr, operator, right);
     }
@@ -117,7 +127,11 @@ fn factor(p: &mut Parser) -> Expr {
     let mut expr: Expr = unary(p);
 
     while p.one_of(vec![TokenType::Slash, TokenType::Star]) {
-        let operator = p.previous();
+        let operator = match p.previous() {
+            Token::Slash => BinOp::Divide,
+            Token::Star => BinOp::Multiply,
+            op => panic!("Matched a binary operator that doesn't exist: {}", op),
+        };
         let right = unary(p);
         expr = Expr::binary(expr, operator, right);
     }
@@ -127,7 +141,11 @@ fn factor(p: &mut Parser) -> Expr {
 
 fn unary(p: &mut Parser) -> Expr {
     if p.one_of(vec![TokenType::Bang, TokenType::Minus]) {
-        let operator = p.previous();
+        let operator = match p.previous() {
+            Token::Bang => UnOp::Not,
+            Token::Minus => UnOp::Negate,
+            op => panic!("Matched a uniary operator that doesn't exist: {}", op),
+        };
         let right = unary(p);
         return Expr::unary(operator, right);
     }
@@ -162,4 +180,6 @@ fn primary(p: &mut Parser) -> Expr {
         p.consume(TokenType::RightParen);
         return Expr::grouping(expr);
     }
+
+    panic!("Could not match TokenType: {}", p.peek())
 }
