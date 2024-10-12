@@ -1,3 +1,4 @@
+pub mod ast;
 pub mod position;
 pub mod scanner;
 pub mod token;

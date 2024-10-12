@@ -201,7 +201,7 @@ impl<'a> Scanner<'a> {
     }
 }
 
-fn fix_keywords(mut token: Token) -> Token {
+fn fix_keywords(token: Token) -> Token {
     match token {
         Token::Identifier(s) => {
             return match s.borrow() {
