@@ -1,129 +1,6 @@
-use std::{borrow::Borrow, fmt::Display, iter::Peekable, str::Chars};
+use std::{borrow::Borrow, iter::Peekable, str::Chars};
 
-#[derive(Debug, PartialEq, Clone)]
-pub enum TokenType {
-    // Single-character tokens.
-    LeftParen,
-    RightParen,
-    LeftBrace,
-    RightBrace,
-    Comma,
-    Dot,
-    Minus,
-    Plus,
-    Semicolon,
-    Slash,
-    Star,
-    // One or two character tokens.
-    Bang,
-    BangEqual,
-    Equal,
-    EqualEqual,
-    Greater,
-    GreaterEqual,
-    Less,
-    LessEqual,
-    // Literals
-    Identifier(String),
-    String(String),
-    Number(f64),
-    // Keywords
-    And,
-    Class,
-    Else,
-    False,
-    Fun,
-    For,
-    If,
-    Nil,
-    Or,
-    Print,
-    Return,
-    Super,
-    This,
-    True,
-    Var,
-    While,
-    // End of file
-    Eof,
-}
-
-impl Display for TokenType {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        match self {
-            TokenType::LeftParen => write!(f, "("),
-            TokenType::RightParen => write!(f, ")"),
-            TokenType::LeftBrace => write!(f, "{}", "{"),
-            TokenType::RightBrace => write!(f, "{}", "}"),
-            TokenType::Comma => write!(f, ","),
-            TokenType::Dot => write!(f, "."),
-            TokenType::Minus => write!(f, "-"),
-            TokenType::Plus => write!(f, "+"),
-            TokenType::Semicolon => write!(f, ";"),
-            TokenType::Slash => write!(f, "/"),
-            TokenType::Star => write!(f, "*"),
-            TokenType::Bang => write!(f, "!"),
-            TokenType::BangEqual => write!(f, "!="),
-            TokenType::Equal => write!(f, "="),
-            TokenType::EqualEqual => write!(f, "=="),
-            TokenType::Greater => write!(f, ">"),
-            TokenType::GreaterEqual => write!(f, ">="),
-            TokenType::Less => write!(f, "<"),
-            TokenType::LessEqual => write!(f, "<="),
-            TokenType::Identifier(s) => write!(f, "{}", s),
-            TokenType::String(s) => write!(f, "\"{}\"", s),
-            TokenType::Number(n) => write!(f, "{}", n),
-            TokenType::And => write!(f, "and"),
-            TokenType::Class => write!(f, "class"),
-            TokenType::Else => write!(f, "else"),
-            TokenType::False => write!(f, "false"),
-            TokenType::Fun => write!(f, "fun"),
-            TokenType::For => write!(f, "for"),
-            TokenType::If => write!(f, "if"),
-            TokenType::Nil => write!(f, "nil"),
-            TokenType::Or => write!(f, "or"),
-            TokenType::Print => write!(f, "print"),
-            TokenType::Return => write!(f, "return"),
-            TokenType::Super => write!(f, "super"),
-            TokenType::This => write!(f, "this"),
-            TokenType::True => write!(f, "true"),
-            TokenType::Var => write!(f, "var"),
-            TokenType::While => write!(f, "while"),
-            TokenType::Eof => write!(f, "EOF"),
-        }
-    }
-}
-
-#[derive(Debug, PartialEq, Clone)]
-pub struct Token {
-    token_type: TokenType,
-    lexeme: String,
-    line: u32,
-}
-
-impl Token {
-    pub fn new(token_type: TokenType, lexeme: String, line: u32) -> Token {
-        Token {
-            token_type,
-            lexeme,
-            line,
-        }
-    }
-    pub fn from_type(token_type: TokenType) -> Token {
-        let lexeme = token_type.to_string();
-        Token {
-            token_type,
-            lexeme: lexeme,
-            line: 1,
-        }
-    }
-}
-
-impl Display for Token {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "{} {}", self.token_type, self.lexeme)
-    }
-}
+use crate::token::{Token, TokenType};
 
 #[derive(Debug, Copy, Clone, PartialEq, PartialOrd, Eq, Ord, Default)]
 pub struct BytePos(pub usize);
@@ -163,19 +40,6 @@ impl<'a> Scanner<'a> {
 
     fn peek(&mut self) -> Option<&char> {
         self.it.peek()
-    }
-
-    fn consume_if<P>(&mut self, predicate: P) -> bool
-    where
-        P: Fn(char) -> bool,
-    {
-        if let Some(&c) = self.peek() {
-            if predicate(c) {
-                self.next().unwrap(); // To trigger errors if there are any
-                return true;
-            }
-        }
-        false
     }
 
     // Consume next char if the next one after matches (so .3 eats . if 3 is numeric, for example)
@@ -305,12 +169,8 @@ impl<'a> Scanner<'a> {
     }
 
     fn create_token(&self, token_type: TokenType) -> Option<Token> {
-        let text = self.source[self.start.0..self.current.0].to_string();
-        Some(Token {
-            token_type,
-            lexeme: text,
-            line: self.line,
-        })
+        let lexeme = self.source[self.start.0..self.current.0].to_string();
+        Some(Token::new(token_type, lexeme, self.line))
     }
 
     fn string(&mut self) -> Option<Token> {
