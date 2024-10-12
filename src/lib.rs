@@ -1,3 +1,4 @@
+pub mod position;
 pub mod scanner;
 pub mod token;
 
@@ -10,7 +11,7 @@ pub fn run(source: &str) {
 
     // For now, just print the tokens.
     for token in tokens {
-        println!("{}", token);
+        println!("{}", token.value);
     }
 }
 

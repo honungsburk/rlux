@@ -1,20 +1,11 @@
 use std::{borrow::Borrow, iter::Peekable, str::Chars};
 
-use crate::token::{Token, TokenType};
-
-#[derive(Debug, Copy, Clone, PartialEq, PartialOrd, Eq, Ord, Default)]
-pub struct BytePos(pub usize);
-
-impl BytePos {
-    pub fn shift(self, ch: char) -> Self {
-        BytePos(self.0 + ch.len_utf8())
-    }
-}
+use crate::position::*;
+use crate::token::Token;
 
 pub struct Scanner<'a> {
     start: BytePos,
     current: BytePos,
-    line: u32,
     source: &'a str,
     it: Peekable<Chars<'a>>,
 }
@@ -24,7 +15,6 @@ impl<'a> Scanner<'a> {
         Scanner {
             current: BytePos::default(),
             start: BytePos::default(),
-            line: 1,
             source: buf,
             it: buf.chars().peekable(),
         }
@@ -79,12 +69,12 @@ impl<'a> Scanner<'a> {
         consumed
     }
 
-    pub fn run(&mut self) -> Vec<Token> {
+    pub fn run(&mut self) -> Vec<WithSpan<Token>> {
         let mut tokens = Vec::new();
         while let Some(c) = self.next() {
             // let initial_position = self.current_position;
             if let Some(token) = self.scan_token(c) {
-                tokens.push(token);
+                tokens.push(self.with_span(token));
             }
             self.start = self.current;
         }
@@ -94,45 +84,21 @@ impl<'a> Scanner<'a> {
     fn scan_token(&mut self, c: char) -> Option<Token> {
         match c {
             // Single-character tokens
-            '(' => self.create_token(TokenType::LeftParen),
-            ')' => self.create_token(TokenType::RightParen),
-            '{' => self.create_token(TokenType::LeftBrace),
-            '}' => self.create_token(TokenType::RightBrace),
-            ',' => self.create_token(TokenType::Comma),
-            '.' => self.create_token(TokenType::Dot),
-            '-' => self.create_token(TokenType::Minus),
-            '+' => self.create_token(TokenType::Plus),
-            ';' => self.create_token(TokenType::Semicolon),
-            '*' => self.create_token(TokenType::Star),
+            '(' => Some(Token::LeftParen),
+            ')' => Some(Token::RightParen),
+            '{' => Some(Token::LeftBrace),
+            '}' => Some(Token::RightBrace),
+            ',' => Some(Token::Comma),
+            '.' => Some(Token::Dot),
+            '-' => Some(Token::Minus),
+            '+' => Some(Token::Plus),
+            ';' => Some(Token::Semicolon),
+            '*' => Some(Token::Star),
             // Two-character tokens
-            '!' => {
-                if self.next_match('=') {
-                    self.create_token(TokenType::BangEqual)
-                } else {
-                    self.create_token(TokenType::Bang)
-                }
-            }
-            '=' => {
-                if self.next_match('=') {
-                    self.create_token(TokenType::EqualEqual)
-                } else {
-                    self.create_token(TokenType::Equal)
-                }
-            }
-            '<' => {
-                if self.next_match('=') {
-                    self.create_token(TokenType::LessEqual)
-                } else {
-                    self.create_token(TokenType::Less)
-                }
-            }
-            '>' => {
-                if self.next_match('=') {
-                    self.create_token(TokenType::GreaterEqual)
-                } else {
-                    self.create_token(TokenType::Greater)
-                }
-            }
+            '!' => Some(self.either('=', Token::BangEqual, Token::Bang)),
+            '=' => Some(self.either('=', Token::EqualEqual, Token::Equal)),
+            '<' => Some(self.either('=', Token::LessEqual, Token::Less)),
+            '>' => Some(self.either('=', Token::GreaterEqual, Token::Greater)),
             '/' => {
                 if self.next_match('/') {
                     while self.peek() != Some(&'\n') && self.peek().is_some() {
@@ -140,22 +106,41 @@ impl<'a> Scanner<'a> {
                     }
                     None
                 } else {
-                    self.create_token(TokenType::Slash)
+                    Some(Token::Slash)
                 }
             }
             ' ' | '\r' | '\t' => None,
-            '\n' => {
-                self.line += 1;
-                None
-            }
-            '"' => self.string(),
-            _ if c.is_ascii_digit() => self.number(c),
+            '\n' => None,
+            '"' => Some(self.string()),
+            _ if c.is_ascii_digit() => Some(self.number(c)),
             // kewwords are reserved identifiers!
-            _ if c.is_ascii_alphabetic() || c == '_' => self.identifier(c).map(fix_keywords),
-            _ => {
-                crate::error(self.line, "Unexpected character.");
-                None
+            _ if c.is_ascii_alphabetic() || c == '_' => Some(fix_keywords(self.identifier(c))),
+            c => Some(Token::UnknownChar(c)),
+        }
+    }
+
+    // Consume next char if it matches
+    fn consume_if<F>(&mut self, x: F) -> bool
+    where
+        F: Fn(char) -> bool,
+    {
+        if let Some(&ch) = self.peek() {
+            if x(ch) {
+                self.next().unwrap();
+                true
+            } else {
+                false
             }
+        } else {
+            false
+        }
+    }
+
+    fn either(&mut self, to_match: char, matched: Token, unmatched: Token) -> Token {
+        if self.consume_if(|ch| ch == to_match) {
+            matched
+        } else {
+            unmatched
         }
     }
 
@@ -168,32 +153,25 @@ impl<'a> Scanner<'a> {
         }
     }
 
-    fn create_token(&self, token_type: TokenType) -> Option<Token> {
-        let lexeme = self.source[self.start.0..self.current.0].to_string();
-        Some(Token::new(token_type, lexeme, self.line))
+    fn with_span(&self, token_type: Token) -> WithSpan<Token> {
+        WithSpan::new_unchecked(token_type, self.start.0, self.current.0)
     }
 
-    fn string(&mut self) -> Option<Token> {
+    fn string(&mut self) -> Token {
         while self.peek() != Some(&'"') && self.peek().is_some() {
-            if self.peek() == Some(&'\n') {
-                self.line += 1;
-            }
             self.next();
         }
 
         if self.peek().is_none() {
-            crate::error(self.line, "Unterminated string.");
-            return None;
+            return Token::UnterminatedString;
         }
 
         // Consume the closing "
         self.next();
-        self.create_token(TokenType::String(
-            self.source[self.start.0 + 1..self.current.0 - 1].to_string(),
-        ))
+        Token::String(self.source[self.start.0 + 1..self.current.0 - 1].to_string())
     }
 
-    fn number(&mut self, first: char) -> Option<Token> {
+    fn number(&mut self, first: char) -> Token {
         let mut number = String::new();
         number.push(first);
 
@@ -208,12 +186,10 @@ impl<'a> Scanner<'a> {
                 .for_each(|c| number.push(*c));
         }
 
-        self.create_token(TokenType::Number(
-            self.source[self.start.0..self.current.0].parse().unwrap(),
-        ))
+        Token::Number(self.source[self.start.0..self.current.0].parse().unwrap())
     }
 
-    fn identifier(&mut self, first: char) -> Option<Token> {
+    fn identifier(&mut self, first: char) -> Token {
         let mut identifier = String::new();
         identifier.push(first);
 
@@ -221,34 +197,32 @@ impl<'a> Scanner<'a> {
             .iter()
             .for_each(|c| identifier.push(*c));
 
-        self.create_token(TokenType::Identifier(identifier))
+        Token::Identifier(identifier)
     }
 }
 
 fn fix_keywords(mut token: Token) -> Token {
-    match token.token_type {
-        TokenType::Identifier(s) => {
-            let new_token_type = match s.borrow() {
-                "and" => TokenType::And,
-                "or" => TokenType::Or,
-                "false" => TokenType::False,
-                "true" => TokenType::True,
-                "if" => TokenType::If,
-                "else" => TokenType::Else,
-                "class" => TokenType::Class,
-                "for" => TokenType::For,
-                "while" => TokenType::While,
-                "fun" => TokenType::Fun,
-                "nil" => TokenType::Nil,
-                "print" => TokenType::Print,
-                "return" => TokenType::Return,
-                "super" => TokenType::Super,
-                "this" => TokenType::This,
-                "var" => TokenType::Var,
-                _ => TokenType::Identifier(s),
+    match token {
+        Token::Identifier(s) => {
+            return match s.borrow() {
+                "and" => Token::And,
+                "or" => Token::Or,
+                "false" => Token::False,
+                "true" => Token::True,
+                "if" => Token::If,
+                "else" => Token::Else,
+                "class" => Token::Class,
+                "for" => Token::For,
+                "while" => Token::While,
+                "fun" => Token::Fun,
+                "nil" => Token::Nil,
+                "print" => Token::Print,
+                "return" => Token::Return,
+                "super" => Token::Super,
+                "this" => Token::This,
+                "var" => Token::Var,
+                _ => Token::Identifier(s),
             };
-            token.token_type = new_token_type;
-            token
         }
         _ => token,
     }
@@ -263,17 +237,17 @@ mod tests {
         let mut scanner = Scanner::new("(){},.-+;*/");
         let tokens = scanner.run();
         let expected = vec![
-            Token::from_type(TokenType::LeftParen),
-            Token::from_type(TokenType::RightParen),
-            Token::from_type(TokenType::LeftBrace),
-            Token::from_type(TokenType::RightBrace),
-            Token::from_type(TokenType::Comma),
-            Token::from_type(TokenType::Dot),
-            Token::from_type(TokenType::Minus),
-            Token::from_type(TokenType::Plus),
-            Token::from_type(TokenType::Semicolon),
-            Token::from_type(TokenType::Star),
-            Token::from_type(TokenType::Slash),
+            WithSpan::new_unchecked(Token::LeftParen, 0, 1),
+            WithSpan::new_unchecked(Token::RightParen, 1, 2),
+            WithSpan::new_unchecked(Token::LeftBrace, 2, 3),
+            WithSpan::new_unchecked(Token::RightBrace, 3, 4),
+            WithSpan::new_unchecked(Token::Comma, 4, 5),
+            WithSpan::new_unchecked(Token::Dot, 5, 6),
+            WithSpan::new_unchecked(Token::Minus, 6, 7),
+            WithSpan::new_unchecked(Token::Plus, 7, 8),
+            WithSpan::new_unchecked(Token::Semicolon, 8, 9),
+            WithSpan::new_unchecked(Token::Star, 9, 10),
+            WithSpan::new_unchecked(Token::Slash, 10, 11),
         ];
         assert_eq!(tokens, expected);
     }
@@ -283,10 +257,10 @@ mod tests {
         let mut scanner = Scanner::new("!= == <= >=");
         let tokens = scanner.run();
         let expected = vec![
-            Token::from_type(TokenType::BangEqual),
-            Token::from_type(TokenType::EqualEqual),
-            Token::from_type(TokenType::LessEqual),
-            Token::from_type(TokenType::GreaterEqual),
+            WithSpan::new_unchecked(Token::BangEqual, 0, 2),
+            WithSpan::new_unchecked(Token::EqualEqual, 3, 5),
+            WithSpan::new_unchecked(Token::LessEqual, 6, 8),
+            WithSpan::new_unchecked(Token::GreaterEqual, 9, 11),
         ];
         assert_eq!(tokens, expected);
     }
@@ -295,7 +269,7 @@ mod tests {
     fn test_comments() {
         let mut scanner = Scanner::new("!= // == <= >=");
         let tokens = scanner.run();
-        let expected = vec![Token::from_type(TokenType::BangEqual)];
+        let expected = vec![WithSpan::new_unchecked(Token::BangEqual, 0, 2)];
         assert_eq!(tokens, expected);
     }
 
@@ -304,13 +278,13 @@ mod tests {
         let mut scanner = Scanner::new("false or (false and true)");
         let tokens = scanner.run();
         let expected = vec![
-            Token::from_type(TokenType::False),
-            Token::from_type(TokenType::Or),
-            Token::from_type(TokenType::LeftParen),
-            Token::from_type(TokenType::False),
-            Token::from_type(TokenType::And),
-            Token::from_type(TokenType::True),
-            Token::from_type(TokenType::RightParen),
+            WithSpan::new_unchecked(Token::False, 0, 5),
+            WithSpan::new_unchecked(Token::Or, 6, 8),
+            WithSpan::new_unchecked(Token::LeftParen, 9, 10),
+            WithSpan::new_unchecked(Token::False, 10, 15),
+            WithSpan::new_unchecked(Token::And, 16, 19),
+            WithSpan::new_unchecked(Token::True, 20, 24),
+            WithSpan::new_unchecked(Token::RightParen, 24, 25),
         ];
         assert_eq!(tokens, expected);
     }
@@ -319,9 +293,11 @@ mod tests {
     fn test_string() {
         let mut scanner = Scanner::new("\"Hello, world!\"");
         let tokens = scanner.run();
-        let expected = vec![Token::from_type(TokenType::String(
-            "Hello, world!".to_string(),
-        ))];
+        let expected = vec![WithSpan::new_unchecked(
+            Token::String("Hello, world!".to_string()),
+            0,
+            15,
+        )];
         assert_eq!(tokens, expected);
     }
 
@@ -329,7 +305,7 @@ mod tests {
     fn test_number_with_dot() {
         let mut scanner = Scanner::new("123.45");
         let tokens = scanner.run();
-        let expected = vec![Token::from_type(TokenType::Number(123.45))];
+        let expected = vec![WithSpan::new_unchecked(Token::Number(123.45), 0, 6)];
         assert_eq!(tokens, expected);
     }
 
@@ -337,7 +313,7 @@ mod tests {
     fn test_number_without_dot() {
         let mut scanner = Scanner::new("123");
         let tokens = scanner.run();
-        let expected = vec![Token::from_type(TokenType::Number(123.0))];
+        let expected = vec![WithSpan::new_unchecked(Token::Number(123.0), 0, 3)];
         assert_eq!(tokens, expected);
     }
 
@@ -345,9 +321,11 @@ mod tests {
     fn test_identifier() {
         let mut scanner = Scanner::new("identifier");
         let tokens = scanner.run();
-        let expected = vec![Token::from_type(TokenType::Identifier(
-            "identifier".to_string(),
-        ))];
+        let expected = vec![WithSpan::new_unchecked(
+            Token::Identifier("identifier".to_string()),
+            0,
+            10,
+        )];
         assert_eq!(tokens, expected);
     }
 
@@ -358,22 +336,22 @@ mod tests {
         );
         let tokens = scanner.run();
         let expected = vec![
-            Token::from_type(TokenType::And),
-            Token::from_type(TokenType::Or),
-            Token::from_type(TokenType::False),
-            Token::from_type(TokenType::True),
-            Token::from_type(TokenType::If),
-            Token::from_type(TokenType::Else),
-            Token::from_type(TokenType::Class),
-            Token::from_type(TokenType::For),
-            Token::from_type(TokenType::While),
-            Token::from_type(TokenType::Fun),
-            Token::from_type(TokenType::Nil),
-            Token::from_type(TokenType::Print),
-            Token::from_type(TokenType::Return),
-            Token::from_type(TokenType::Super),
-            Token::from_type(TokenType::This),
-            Token::from_type(TokenType::Var),
+            WithSpan::new_unchecked(Token::And, 0, 3),
+            WithSpan::new_unchecked(Token::Or, 4, 6),
+            WithSpan::new_unchecked(Token::False, 7, 12),
+            WithSpan::new_unchecked(Token::True, 13, 17),
+            WithSpan::new_unchecked(Token::If, 18, 20),
+            WithSpan::new_unchecked(Token::Else, 21, 25),
+            WithSpan::new_unchecked(Token::Class, 26, 31),
+            WithSpan::new_unchecked(Token::For, 32, 35),
+            WithSpan::new_unchecked(Token::While, 36, 41),
+            WithSpan::new_unchecked(Token::Fun, 42, 45),
+            WithSpan::new_unchecked(Token::Nil, 46, 49),
+            WithSpan::new_unchecked(Token::Print, 50, 55),
+            WithSpan::new_unchecked(Token::Return, 56, 62),
+            WithSpan::new_unchecked(Token::Super, 63, 68),
+            WithSpan::new_unchecked(Token::This, 69, 73),
+            WithSpan::new_unchecked(Token::Var, 74, 77),
         ];
 
         assert_eq!(tokens, expected);
