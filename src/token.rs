@@ -100,7 +100,7 @@ impl Into<TokenKind> for Token {
             Token::Var => TokenKind::Var,
             Token::While => TokenKind::While,
             Token::Eof => TokenKind::Eof,
-            Token::UnknownChar(c) => TokenKind::UnknownChar,
+            Token::UnknownChar(_) => TokenKind::UnknownChar,
         }
     }
 }

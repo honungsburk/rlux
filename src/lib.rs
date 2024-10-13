@@ -1,4 +1,5 @@
-pub mod expression;
+pub mod expr;
+pub mod expr_parser;
 pub mod parser;
 pub mod position;
 pub mod scanner;
