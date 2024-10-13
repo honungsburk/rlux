@@ -257,3 +257,82 @@ fn primary(p: &mut Parser) -> Option<Expr> {
 
     None
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::token::Token;
+
+    fn token(kind: Token) -> WithSpan<Token> {
+        WithSpan::new_unchecked(kind, 0, 1)
+    }
+
+    fn run_test(tokens: &Vec<Token>) -> Result<Expr, Vec<Diagnostic>> {
+        let tokens = tokens.into_iter().map(|t| token(t.clone())).collect();
+        run(&tokens)
+    }
+
+    #[test]
+    fn test_precedence() {
+        let tokens = vec![
+            Token::Number(1.0),
+            Token::Plus,
+            Token::Number(2.0),
+            Token::Star,
+            Token::Number(3.0),
+            Token::Eof,
+        ];
+
+        let expr = run_test(&tokens).unwrap();
+        assert_eq!(
+            expr,
+            Expr::binary(
+                Expr::number(1.0),
+                BinOp::Plus,
+                Expr::binary(Expr::number(2.0), BinOp::Multiply, Expr::number(3.0)),
+            )
+        );
+    }
+
+    #[test]
+    fn test_parens() {
+        let tokens = vec![
+            Token::LeftParen,
+            Token::Number(1.0),
+            Token::Plus,
+            Token::Number(2.0),
+            Token::RightParen,
+            Token::Star,
+            Token::Number(3.0),
+            Token::Eof,
+        ];
+
+        let expr = run_test(&tokens).unwrap();
+        assert_eq!(
+            expr,
+            Expr::binary(
+                Expr::grouping(Expr::binary(
+                    Expr::number(1.0),
+                    BinOp::Plus,
+                    Expr::number(2.0)
+                )),
+                BinOp::Multiply,
+                Expr::number(3.0),
+            )
+        );
+    }
+
+    #[test]
+    fn test_parser_error() {
+        let tokens = vec![
+            Token::Number(1.0),
+            Token::Plus,
+            Token::Number(2.0),
+            Token::Star,
+            Token::Eof,
+        ];
+
+        let diagnostics = run_test(&tokens).unwrap_err();
+        assert_eq!(diagnostics.len(), 1);
+    }
+}
