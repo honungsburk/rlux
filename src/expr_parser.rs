@@ -1,5 +1,5 @@
 use crate::{
-    expr::{BinOp, Expr, UnOp},
+    expr::{BinaryOp, Expr, UnaryOp},
     parser::Parser,
     position::{Diagnostic, WithSpan},
     token::{Token, TokenKind},
@@ -39,8 +39,8 @@ fn equality(p: &mut Parser) -> Option<Expr> {
 
     while p.one_of(vec![TokenKind::BangEqual, TokenKind::EqualEqual]) {
         let operator = match p.previous().as_ref().value {
-            Token::BangEqual => BinOp::NotEquals,
-            Token::EqualEqual => BinOp::Equals,
+            Token::BangEqual => BinaryOp::NotEquals,
+            Token::EqualEqual => BinaryOp::Equals,
             op => panic!("Matched a binary operator that doesn't exist: {}", op),
         };
         let right = comparison(p)?;
@@ -60,10 +60,10 @@ fn comparison(p: &mut Parser) -> Option<Expr> {
         TokenKind::LessEqual,
     ]) {
         let operator = match p.previous().as_ref().value {
-            Token::Greater => BinOp::Greater,
-            Token::GreaterEqual => BinOp::GreaterOrEquals,
-            Token::Less => BinOp::Less,
-            Token::LessEqual => BinOp::LessOrEquals,
+            Token::Greater => BinaryOp::Greater,
+            Token::GreaterEqual => BinaryOp::GreaterOrEquals,
+            Token::Less => BinaryOp::Less,
+            Token::LessEqual => BinaryOp::LessOrEquals,
             op => panic!("Matched a binary operator that doesn't exist: {}", op),
         };
         let right = term(p)?;
@@ -78,8 +78,8 @@ fn term(p: &mut Parser) -> Option<Expr> {
 
     while p.one_of(vec![TokenKind::Minus, TokenKind::Plus]) {
         let operator = match p.previous().as_ref().value {
-            Token::Minus => BinOp::Minus,
-            Token::Plus => BinOp::Plus,
+            Token::Minus => BinaryOp::Minus,
+            Token::Plus => BinaryOp::Plus,
             op => panic!("Matched a binary operator that doesn't exist: {}", op),
         };
         let right = factor(p)?;
@@ -94,8 +94,8 @@ fn factor(p: &mut Parser) -> Option<Expr> {
 
     while p.one_of(vec![TokenKind::Slash, TokenKind::Star]) {
         let operator = match p.previous().as_ref().value {
-            Token::Slash => BinOp::Divide,
-            Token::Star => BinOp::Multiply,
+            Token::Slash => BinaryOp::Divide,
+            Token::Star => BinaryOp::Multiply,
             op => panic!("Matched a binary operator that doesn't exist: {}", op),
         };
         let right = unary(p)?;
@@ -108,8 +108,8 @@ fn factor(p: &mut Parser) -> Option<Expr> {
 fn unary(p: &mut Parser) -> Option<Expr> {
     if p.one_of(vec![TokenKind::Bang, TokenKind::Minus]) {
         let operator = match p.previous().as_ref().value {
-            Token::Bang => UnOp::Not,
-            Token::Minus => UnOp::Negate,
+            Token::Bang => UnaryOp::Not,
+            Token::Minus => UnaryOp::Negate,
             op => panic!("Matched a uniary operator that doesn't exist: {}", op),
         };
         let right = unary(p)?;
@@ -165,7 +165,7 @@ fn primary(p: &mut Parser) -> Option<Expr> {
 mod tests {
     use super::*;
     use crate::{
-        expr::{BinOp, Expr},
+        expr::{BinaryOp, Expr},
         token::Token,
     };
 
@@ -194,8 +194,8 @@ mod tests {
             expr,
             Expr::binary(
                 Expr::number(1.0),
-                BinOp::Plus,
-                Expr::binary(Expr::number(2.0), BinOp::Multiply, Expr::number(3.0)),
+                BinaryOp::Plus,
+                Expr::binary(Expr::number(2.0), BinaryOp::Multiply, Expr::number(3.0)),
             )
         );
     }
@@ -219,10 +219,10 @@ mod tests {
             Expr::binary(
                 Expr::grouping(Expr::binary(
                     Expr::number(1.0),
-                    BinOp::Plus,
+                    BinaryOp::Plus,
                     Expr::number(2.0)
                 )),
-                BinOp::Multiply,
+                BinaryOp::Multiply,
                 Expr::number(3.0),
             )
         );

@@ -6,8 +6,8 @@ pub enum Expr {
     True,
     False,
     Nil,
-    Unary(UnOp, Box<Expr>),
-    Binary(Box<Expr>, BinOp, Box<Expr>),
+    Unary(UnaryOp, Box<Expr>),
+    Binary(Box<Expr>, BinaryOp, Box<Expr>),
 }
 
 impl Expr {
@@ -35,11 +35,11 @@ impl Expr {
         Expr::Nil
     }
 
-    pub fn unary(op: UnOp, expr: Expr) -> Expr {
+    pub fn unary(op: UnaryOp, expr: Expr) -> Expr {
         Expr::Unary(op, Box::new(expr))
     }
 
-    pub fn binary(left: Expr, op: BinOp, right: Expr) -> Expr {
+    pub fn binary(left: Expr, op: BinaryOp, right: Expr) -> Expr {
         Expr::Binary(Box::new(left), op, Box::new(right))
     }
 }
@@ -67,29 +67,29 @@ impl StructuralPrinter for Expr {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum UnOp {
+pub enum UnaryOp {
     Not,
     Negate,
 }
 
-impl UnOp {
+impl UnaryOp {
     pub fn print(&self) -> String {
         let s = match self {
-            UnOp::Not => "!",
-            UnOp::Negate => "-",
+            UnaryOp::Not => "!",
+            UnaryOp::Negate => "-",
         };
         return s.to_string();
     }
 }
 
-impl StructuralPrinter for UnOp {
+impl StructuralPrinter for UnaryOp {
     fn print_structural(&self) -> String {
         self.print()
     }
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum BinOp {
+pub enum BinaryOp {
     Equals,
     NotEquals,
     Less,
@@ -102,25 +102,25 @@ pub enum BinOp {
     Divide,
 }
 
-impl BinOp {
+impl BinaryOp {
     fn print(&self) -> String {
         let s = match self {
-            BinOp::Equals => "==",
-            BinOp::NotEquals => "!=",
-            BinOp::Less => "<",
-            BinOp::LessOrEquals => "<=",
-            BinOp::Greater => ">",
-            BinOp::GreaterOrEquals => ">=",
-            BinOp::Plus => "+",
-            BinOp::Minus => "-",
-            BinOp::Multiply => "*",
-            BinOp::Divide => "/",
+            BinaryOp::Equals => "==",
+            BinaryOp::NotEquals => "!=",
+            BinaryOp::Less => "<",
+            BinaryOp::LessOrEquals => "<=",
+            BinaryOp::Greater => ">",
+            BinaryOp::GreaterOrEquals => ">=",
+            BinaryOp::Plus => "+",
+            BinaryOp::Minus => "-",
+            BinaryOp::Multiply => "*",
+            BinaryOp::Divide => "/",
         };
         s.to_string()
     }
 }
 
-impl StructuralPrinter for BinOp {
+impl StructuralPrinter for BinaryOp {
     fn print_structural(&self) -> String {
         self.print()
     }

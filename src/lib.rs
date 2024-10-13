@@ -1,4 +1,5 @@
 pub mod expr;
+pub mod expr_eval;
 pub mod expr_parser;
 pub mod parser;
 pub mod position;
@@ -8,13 +9,31 @@ pub mod token;
 use scanner::Scanner;
 
 pub fn run(source: &str) {
+    let line_offsets = position::LineOffsets::new(source);
+
     let mut scanner = Scanner::new(source);
 
     let tokens = scanner.run();
 
-    // For now, just print the tokens.
-    for token in tokens {
-        println!("{}", token.value);
+    let expr = expr_parser::run(&tokens);
+
+    match expr {
+        Ok(expr) => {
+            let value = expr_eval::run(&expr);
+            match value {
+                Ok(value) => println!("{:?}", value),
+                Err(err) => eprintln!("{:?}", err),
+            }
+        }
+        Err(diagnostics) => {
+            for diagnostic in diagnostics {
+                eprintln!(
+                    "Error: {} at {}",
+                    diagnostic.message,
+                    line_offsets.line(diagnostic.span.start)
+                );
+            }
+        }
     }
 }
 
