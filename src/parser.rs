@@ -84,6 +84,26 @@ pub fn run(tokens: &Vec<Token>) -> Result<Expr, Vec<ParserError>> {
     let parser = Parser::new(tokens);
 }
 
+pub fn expression(p: &mut Parser) -> Expr {
+    equality(p)
+}
+
+fn equality(p: &mut Parser) -> Expr {
+    let mut expr = comparison(p);
+
+    while p.one_of(vec![TokenType::BangEqual, TokenType::EqualEqual]) {
+        let operator = match p.previous() {
+            Token::BangEqual => BinOp::NotEquals,
+            Token::EqualEqual => BinOp::Equals,
+            op => panic!("Matched a binary operator that doesn't exist: {}", op),
+        };
+        let right = comparison(p);
+        expr = Expr::binary(expr, operator, right);
+    }
+
+    expr
+}
+
 fn comparison(p: &mut Parser) -> Expr {
     let mut expr = term(p);
 
