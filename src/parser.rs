@@ -1,10 +1,10 @@
-use std::collections::binary_heap::Iter;
-
 use crate::{
-    expression::{self, BinOp, Expr, UnOp},
+    expression::{BinOp, Expr, UnOp},
     position::*,
-    token::{Token, TokenType},
+    token::{Token, TokenKind},
 };
+
+static EOF_TOKEN: WithSpan<Token> = WithSpan::empty(Token::Eof);
 
 /// Production rules:
 ///
@@ -21,30 +21,47 @@ use crate::{
 /// ```
 pub struct Parser<'a> {
     current: usize,
-    tokens: &'a Vec<Token>,
+    tokens: &'a Vec<WithSpan<Token>>,
+    diagnostics: Vec<Diagnostic>,
 }
 
 impl<'a> Parser<'a> {
-    pub fn new(tokens: &'a Vec<Token>) -> Self {
+    pub fn new(tokens: &'a Vec<WithSpan<Token>>) -> Self {
         Parser {
             current: 0,
             tokens: tokens,
+            diagnostics: Vec::new(),
         }
     }
 
-    fn peek(&self) -> Token {
-        return self.tokens[self.current];
+    pub fn diagnostics(&self) -> &[Diagnostic] {
+        &self.diagnostics
     }
 
-    fn previous(&self) -> Token {
-        return self.tokens[self.current - 1];
+    fn error(&mut self, message: &str, span: Span) {
+        self.diagnostics.push(Diagnostic {
+            message: message.to_string(),
+            span,
+        });
+    }
+
+    fn peek(&self) -> TokenKind {
+        return self.peek_token().value.kind();
+    }
+
+    fn peek_token(&self) -> &'a WithSpan<Token> {
+        self.tokens.get(self.current).unwrap_or(&EOF_TOKEN)
+    }
+
+    fn previous(&self) -> &'a WithSpan<Token> {
+        return self.tokens.get(self.current - 1).unwrap_or(&EOF_TOKEN);
     }
 
     fn is_at_end(&self) -> bool {
-        return self.peek() == Token::Eof;
+        return self.peek() == TokenKind::Eof;
     }
 
-    fn check(&self, token: TokenType) -> bool {
+    fn check(&self, token: TokenKind) -> bool {
         if self.is_at_end() {
             false
         } else {
@@ -52,14 +69,14 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn advance(&mut self) -> Token {
+    fn advance(&mut self) -> &'a WithSpan<Token> {
         if !self.is_at_end() {
             self.current += 1;
         }
         return self.previous();
     }
 
-    fn one_of<T: IntoIterator<Item = TokenType>>(&mut self, tokens: T) -> bool {
+    fn one_of<T: IntoIterator<Item = TokenKind>>(&mut self, tokens: T) -> bool {
         for token in tokens {
             if self.check(token) {
                 self.advance();
@@ -69,8 +86,29 @@ impl<'a> Parser<'a> {
         return false;
     }
 
-    fn is(&mut self, token: TokenType) -> bool {
+    fn is(&mut self, token: TokenKind) -> bool {
         if self.check(token.into()) {
+            self.advance();
+            return true;
+        }
+        return false;
+    }
+
+    fn expect(&mut self, expected: TokenKind) -> Option<&'a WithSpan<Token>> {
+        let token = self.advance();
+        if expected == token.value.kind() {
+            return Some(token);
+        } else {
+            self.error(
+                &format!("Expected {} got {}", expected, token.value),
+                token.span,
+            );
+            return None;
+        }
+    }
+
+    fn optional(&mut self, token: TokenKind) -> bool {
+        if self.check(token) {
             self.advance();
             return true;
         }
@@ -80,126 +118,142 @@ impl<'a> Parser<'a> {
 
 pub enum ParserError {}
 
-pub fn run(tokens: &Vec<Token>) -> Result<Expr, Vec<ParserError>> {
-    let parser = Parser::new(tokens);
+pub fn run(tokens: &Vec<WithSpan<Token>>) -> Result<Expr, Vec<Diagnostic>> {
+    let mut parser = Parser::new(tokens);
+
+    match expression(&mut parser) {
+        Some(expr) => Ok(expr),
+        None => Err(parser.diagnostics),
+    }
 }
 
-pub fn expression(p: &mut Parser) -> Expr {
+pub fn expression(p: &mut Parser) -> Option<Expr> {
     equality(p)
 }
 
-fn equality(p: &mut Parser) -> Expr {
-    let mut expr = comparison(p);
+fn equality(p: &mut Parser) -> Option<Expr> {
+    let mut expr = comparison(p)?;
 
-    while p.one_of(vec![TokenType::BangEqual, TokenType::EqualEqual]) {
-        let operator = match p.previous() {
+    while p.one_of(vec![TokenKind::BangEqual, TokenKind::EqualEqual]) {
+        let operator = match p.previous().as_ref().value {
             Token::BangEqual => BinOp::NotEquals,
             Token::EqualEqual => BinOp::Equals,
             op => panic!("Matched a binary operator that doesn't exist: {}", op),
         };
-        let right = comparison(p);
+        let right = comparison(p)?;
         expr = Expr::binary(expr, operator, right);
     }
 
-    expr
+    Some(expr)
 }
 
-fn comparison(p: &mut Parser) -> Expr {
-    let mut expr = term(p);
+fn comparison(p: &mut Parser) -> Option<Expr> {
+    let mut expr = term(p)?;
 
     while p.one_of(vec![
-        TokenType::Greater,
-        TokenType::GreaterEqual,
-        TokenType::Less,
-        TokenType::LessEqual,
+        TokenKind::Greater,
+        TokenKind::GreaterEqual,
+        TokenKind::Less,
+        TokenKind::LessEqual,
     ]) {
-        let operator = match p.previous() {
+        let operator = match p.previous().as_ref().value {
             Token::Greater => BinOp::Greater,
             Token::GreaterEqual => BinOp::GreaterOrEquals,
             Token::Less => BinOp::Less,
             Token::LessEqual => BinOp::LessOrEquals,
             op => panic!("Matched a binary operator that doesn't exist: {}", op),
         };
-        let right = term(p);
+        let right = term(p)?;
         expr = Expr::binary(expr, operator, right);
     }
 
-    expr
+    Some(expr)
 }
 
-fn term(p: &mut Parser) -> Expr {
-    let mut expr: Expr = factor(p);
+fn term(p: &mut Parser) -> Option<Expr> {
+    let mut expr: Expr = factor(p)?;
 
-    while p.one_of(vec![TokenType::Minus, TokenType::Plus]) {
-        let operator = match p.previous() {
+    while p.one_of(vec![TokenKind::Minus, TokenKind::Plus]) {
+        let operator = match p.previous().as_ref().value {
             Token::Minus => BinOp::Minus,
             Token::Plus => BinOp::Plus,
             op => panic!("Matched a binary operator that doesn't exist: {}", op),
         };
-        let right = factor(p);
+        let right = factor(p)?;
         expr = Expr::binary(expr, operator, right);
     }
 
-    expr
+    Some(expr)
 }
 
-fn factor(p: &mut Parser) -> Expr {
-    let mut expr: Expr = unary(p);
+fn factor(p: &mut Parser) -> Option<Expr> {
+    let mut expr: Expr = unary(p)?;
 
-    while p.one_of(vec![TokenType::Slash, TokenType::Star]) {
-        let operator = match p.previous() {
+    while p.one_of(vec![TokenKind::Slash, TokenKind::Star]) {
+        let operator = match p.previous().as_ref().value {
             Token::Slash => BinOp::Divide,
             Token::Star => BinOp::Multiply,
             op => panic!("Matched a binary operator that doesn't exist: {}", op),
         };
-        let right = unary(p);
+        let right = unary(p)?;
         expr = Expr::binary(expr, operator, right);
     }
 
-    expr
+    Some(expr)
 }
 
-fn unary(p: &mut Parser) -> Expr {
-    if p.one_of(vec![TokenType::Bang, TokenType::Minus]) {
-        let operator = match p.previous() {
+fn unary(p: &mut Parser) -> Option<Expr> {
+    if p.one_of(vec![TokenKind::Bang, TokenKind::Minus]) {
+        let operator = match p.previous().as_ref().value {
             Token::Bang => UnOp::Not,
             Token::Minus => UnOp::Negate,
             op => panic!("Matched a uniary operator that doesn't exist: {}", op),
         };
-        let right = unary(p);
-        return Expr::unary(operator, right);
+        let right = unary(p)?;
+        return Some(Expr::unary(operator, right));
     }
 
     primary(p)
 }
 
-fn primary(p: &mut Parser) -> Expr {
-    if p.is(TokenType::False) {
-        return Expr::false_expr();
+fn primary(p: &mut Parser) -> Option<Expr> {
+    if p.is(TokenKind::False) {
+        return Some(Expr::false_expr());
     }
 
-    if p.is(TokenType::True) {
-        return Expr::true_expr();
+    if p.is(TokenKind::True) {
+        return Some(Expr::true_expr());
     }
-    if p.is(TokenType::Nil) {
-        return Expr::nil();
+    if p.is(TokenKind::Nil) {
+        return Some(Expr::nil());
     }
 
-    if let Token::Number(n) = p.peek() {
+    if let Token::Number(n) = p.peek_token().value {
         p.advance();
-        return Expr::number(n);
+        return Some(Expr::number(n));
     }
 
-    if let Token::String(s) = p.peek() {
+    if let Token::String(s) = p.peek_token().value.clone() {
         p.advance();
-        return Expr::string(s);
+        return Some(Expr::string(s));
     }
 
-    if p.is(TokenType::LeftParen) {
-        let expr = expression(p);
-        p.consume(TokenType::RightParen);
-        return Expr::grouping(expr);
+    if p.is(TokenKind::LeftParen) {
+        let expr = expression(p)?;
+        return p
+            .expect(TokenKind::RightParen)
+            .map(|_| Expr::grouping(expr));
     }
 
-    panic!("Could not match TokenType: {}", p.peek())
+    let token = p.peek_token();
+
+    p.error(
+        &format!(
+            "Expected one of true, false, nil, number, string, or ( but found {}",
+            token.value
+        ),
+        token.span,
+    );
+
+    None
 }
