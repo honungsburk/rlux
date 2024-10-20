@@ -1,12 +1,5 @@
 use crate::{
-    environment::Environment,
-    parser::Parser,
-    position::{Diagnostic, WithSpan},
-    run_time_error::RunTimeError,
-    stmt::Stmt,
-    stmt_eval,
-    stmt_parser::{declaration, drop_until_statement},
-    token::Token,
+    environment::Environment, expr_eval::Value, parser::Parser, position::{Diagnostic, WithSpan}, run_time_error::RunTimeError, stmt::Stmt, stmt_eval, stmt_parser::{declaration, drop_until_statement}, token::Token
 };
 
 pub struct Program {
@@ -37,11 +30,11 @@ impl Program {
         Ok(Self { statements })
     }
 
-    pub fn run(&self) -> Result<(), RunTimeError> {
-        let mut env = Environment::new();
+    pub fn run(&self, env: &mut Environment) -> Result<Option<Value>, RunTimeError> {
+        let mut last_val = None;
         for stmt in &self.statements {
-            stmt_eval::run(stmt, &mut env)?;
+            last_val = stmt_eval::run(stmt, env)?;
         }
-        Ok(())
+        Ok(last_val)
     }
 }

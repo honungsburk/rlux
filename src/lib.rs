@@ -12,9 +12,11 @@ pub mod program;
 pub mod run_time_error;
 pub mod environment;
 
+use environment::Environment;
+use expr_eval::Value;
 use scanner::Scanner;
 
-pub fn run(source: &str) {
+pub fn run(source: &str, env: &mut Environment) -> Option<Value> {
     let line_offsets = position::LineOffsets::new(source);
 
     let mut scanner = Scanner::new(source);
@@ -25,9 +27,12 @@ pub fn run(source: &str) {
 
     match program {
         Ok(p) => {
-            match p.run() {
-                Ok(()) => {},
-                Err(err) => eprintln!("{:?}", err),
+            match p.run(env) {
+                Ok(v) => v,
+                Err(err) => { 
+                    eprintln!("{:?}", err); 
+                    None 
+                }
             }
         }
         Err(diagnostics) => {
@@ -38,6 +43,7 @@ pub fn run(source: &str) {
                     line_offsets.line(diagnostic.span.start)
                 );
             }
+            None
         }
     }
 }

@@ -1,6 +1,7 @@
 use clap::Arg;
 use clap::ArgAction;
 use clap::Command;
+use rlux::environment::Environment;
 use core::str;
 use std::fs;
 use std::io::{self, BufRead, Write};
@@ -44,7 +45,7 @@ fn run_prompt() {
     let stdin = io::stdin();
     let mut stdout = io::stdout();
     let mut reader = stdin.lock();
-
+    let mut env = Environment::new();
     loop {
         print!("> ");
         stdout.flush().unwrap();
@@ -52,7 +53,12 @@ fn run_prompt() {
         let mut line = String::new();
         match reader.read_line(&mut line) {
             Ok(0) => break, // EOF reached
-            Ok(_) => rlux::run(line.trim()),
+            Ok(_) => {
+                match rlux::run(line.trim(), &mut env) {
+                    Some(v) => println!("{}", v.to_string()),
+                    None => (),
+                }
+            },
             Err(err) => {
                 eprintln!("Error reading line: {}", err);
                 break;
@@ -64,6 +70,7 @@ fn run_prompt() {
 fn run_file(path: &str) -> io::Result<()> {
     let bytes = fs::read(Path::new(path))?;
     let content = str::from_utf8(&bytes).expect("Invalid UTF-8 sequence");
-    rlux::run(content);
+    let mut env = Environment::new();
+    rlux::run(content, &mut env);
     Ok(())
 }
