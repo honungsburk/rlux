@@ -20,6 +20,10 @@ impl<'a> Parser<'a> {
         }
     }
 
+    pub fn had_error(&self) -> bool {
+        !self.diagnostics.is_empty()
+    }
+
     pub fn diagnostics(&self) -> &[Diagnostic] {
         &self.diagnostics
     }

@@ -5,6 +5,11 @@ pub mod parser;
 pub mod position;
 pub mod scanner;
 pub mod token;
+pub mod stmt;
+pub mod stmt_parser;
+pub mod stmt_eval;
+pub mod program;
+pub mod run_time_error;
 
 use scanner::Scanner;
 
@@ -15,32 +20,23 @@ pub fn run(source: &str) {
 
     let tokens = scanner.run();
 
-    let expr = expr_parser::run(&tokens);
+    let program = program::Program::parse(&tokens);
 
-    match expr {
-        Ok(expr) => {
-            let value = expr_eval::run(&expr);
-            match value {
-                Ok(value) => println!("{:?}", value),
+    match program {
+        Ok(p) => {
+            match p.run() {
+                Ok(()) => {},
                 Err(err) => eprintln!("{:?}", err),
             }
         }
         Err(diagnostics) => {
             for diagnostic in diagnostics {
                 eprintln!(
-                    "Error: {} at {}",
+                    "Error: {} at line {}",
                     diagnostic.message,
                     line_offsets.line(diagnostic.span.start)
                 );
             }
         }
     }
-}
-
-pub fn error(line: u32, message: &str) {
-    report(line, "", message);
-}
-
-pub fn report(line: u32, location: &str, message: &str) {
-    eprintln!("[line {}] Error {}: {}", line, location, message);
 }

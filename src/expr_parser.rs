@@ -1,21 +1,10 @@
 use crate::{
     expr::{BinaryOp, Expr, UnaryOp},
     parser::Parser,
-    position::{Diagnostic, WithSpan},
     token::{Token, TokenKind},
 };
 
-/// Parse the given tokens into an expression.
-pub fn run(tokens: &Vec<WithSpan<Token>>) -> Result<Expr, Vec<Diagnostic>> {
-    let mut parser = Parser::new(tokens);
 
-    match expression(&mut parser) {
-        Some(expr) => Ok(expr),
-        None => Err(Vec::from_iter(
-            parser.diagnostics().iter().map(|d| d.clone()),
-        )),
-    }
-}
 
 /// Production rules:
 ///
@@ -167,16 +156,27 @@ mod tests {
     use crate::{
         expr::{BinaryOp, Expr},
         token::Token,
+        position::{Diagnostic, WithSpan},
     };
 
     fn token(kind: Token) -> WithSpan<Token> {
         WithSpan::new_unchecked(kind, 0, 1)
     }
 
+
+    /// Parse the given tokens into an expression.
     fn run_test(tokens: &Vec<Token>) -> Result<Expr, Vec<Diagnostic>> {
-        let tokens = tokens.into_iter().map(|t| token(t.clone())).collect();
-        run(&tokens)
+        let tokens: Vec<WithSpan<Token>> = tokens.into_iter().map(|t| token(t.clone())).collect();
+        let mut parser = Parser::new(&tokens);
+
+        match expression(&mut parser) {
+            Some(expr) => Ok(expr),
+            None => Err(Vec::from_iter(
+                parser.diagnostics().iter().map(|d| d.clone()),
+            )),
+        }
     }
+
 
     #[test]
     fn test_precedence() {

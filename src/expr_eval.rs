@@ -1,10 +1,6 @@
-use crate::expr::{BinaryOp, Expr, UnaryOp};
+use crate::{expr::{BinaryOp, Expr, UnaryOp}, run_time_error::RunTimeError};
 
-#[derive(Debug, Clone)]
-pub enum RunTimeError {
-    TypeError(String),
-    DivideByZero(String),
-}
+
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Value {
@@ -20,6 +16,15 @@ impl Value {
             Value::Nil => false,
             Value::Boolean(b) => *b,
             _ => true,
+        }
+    }
+
+    pub fn to_string(&self) -> String {
+        match self {
+            Value::Nil => "nil".to_string(),
+            Value::Boolean(b) => b.to_string(),
+            Value::Number(n) => n.to_string(),
+            Value::String(s) => s.clone(),
         }
     }
 }
