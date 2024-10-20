@@ -9,7 +9,10 @@ use crate::{
 /// Production rules:
 ///
 /// ```bnf
-/// expression     → equality ;
+/// expression     → assignment ;
+///
+/// assignment     → IDENTIFIER "=" expression ;
+///
 /// equality       → comparison ( ( "!=" | "==" ) comparison )* ;
 /// comparison     → term ( ( ">" | ">=" | "<" | "<=" ) term )* ;
 /// term           → factor ( ( "-" | "+" ) factor )* ;
@@ -20,8 +23,25 @@ use crate::{
 ///                | "(" expression ")" | IDENTIFIER ;
 /// ```
 pub fn expression(p: &mut Parser) -> Option<Expr> {
-    equality(p)
+    assignment(p)
 }
+
+fn assignment(p: &mut Parser) -> Option<Expr> {
+    let expr = equality(p)?;
+    if p.is(TokenKind::Equal) {
+        let previous = p.previous();
+        let value = assignment(p)?;
+        match &expr {
+            Expr::Variable(name) => return Some(Expr::assignment(name.clone(), value)),
+            _ => {
+                p.error("Invalid assignment target", previous.span);
+                return None;
+            },
+        }
+    }
+    Some(expr)
+}
+
 
 fn equality(p: &mut Parser) -> Option<Expr> {
     let mut expr = comparison(p)?;

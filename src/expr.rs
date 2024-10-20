@@ -9,6 +9,7 @@ pub enum Expr {
     Unary(UnaryOp, Box<Expr>),
     Binary(Box<Expr>, BinaryOp, Box<Expr>),
     Variable(String),
+    Assignment(String, Box<Expr>),
 }
 
 impl Expr {
@@ -47,6 +48,10 @@ impl Expr {
     pub fn variable(name: String) -> Expr {
         Expr::Variable(name)
     }
+
+    pub fn assignment(name: String, expr: Expr) -> Expr {
+        Expr::Assignment(name, Box::new(expr))
+    }
 }
 
 impl StructuralPrinter for Expr {
@@ -68,6 +73,7 @@ impl StructuralPrinter for Expr {
                 right.print_structural()
             ),
             Expr::Variable(name) => name.clone(),
+            Expr::Assignment(name, expr) => format!("({} = {})", name, expr.print_structural()),
         }
     }
 }

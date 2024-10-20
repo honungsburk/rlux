@@ -29,9 +29,17 @@ impl Value {
     }
 }
 
-pub fn run(expr: &Expr, env: &Environment) -> Result<Value, RunTimeError> {
+pub fn run(expr: &Expr, env: &mut Environment) -> Result<Value, RunTimeError> {
     // TODO: Use a worklist algorithm to avoid stack overflow
     match expr {
+        Expr::Assignment(name, expr) => {
+            let val = run(expr, env)?;
+            if env.assign(name.clone(), val.clone()) {
+                Ok(val)
+            } else {
+                Err(RunTimeError::UndefinedVariable(name.clone()))
+            }
+        }
         Expr::Variable(name) => env.get(name).map(|v| v.clone()).ok_or(RunTimeError::UndefinedVariable(name.clone())),
         Expr::Number(n) => Ok(Value::Number(*n)),
         Expr::String(s) => Ok(Value::String(s.clone())),

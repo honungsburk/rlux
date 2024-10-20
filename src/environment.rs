@@ -16,6 +16,14 @@ impl Environment {
         self.vars.insert(name, value);
     }
 
+    pub fn assign(&mut self, name: String, value: Value) -> bool {
+        if !self.vars.contains_key(&name) {
+            return false;
+        }
+        self.vars.insert(name, value);
+        return true;
+    }
+
     pub fn get(&self, name: &str) -> Option<&Value> {
         self.vars.get(name)
     }
