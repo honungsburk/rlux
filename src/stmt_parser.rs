@@ -18,16 +18,31 @@ pub fn declaration(p: &mut Parser) -> Option<Stmt> {
 }
 
 
-pub fn statement(p: &mut Parser) -> Option<Stmt> {
+fn statement(p: &mut Parser) -> Option<Stmt> {
     if p.is(TokenKind::Print) {
         let expr = expression(p)?;
         p.expect(TokenKind::Semicolon)?;
         return Some(Stmt::Print(expr));
+    } else if p.check(TokenKind::LeftBrace) {
+        return block(p);
     } else {
         let expr = expression(p)?;
         p.expect(TokenKind::Semicolon)?;
         return Some(Stmt::Expression(expr));
     }
+}
+
+
+fn block(p: &mut Parser) -> Option<Stmt> {
+    let mut stmts = Vec::new();
+    p.expect(TokenKind::LeftBrace)?;
+    while !p.check(TokenKind::RightBrace) && !p.is_at_end() {
+        let stmt = declaration(p)?;
+        stmts.push(stmt);
+    }
+
+    p.expect(TokenKind::RightBrace)?;
+    Some(Stmt::Block(stmts))
 }
 
 /// Drop tokens until a statement is found or the end of the file is reached.
@@ -53,7 +68,6 @@ mod tests {
     fn token(kind: Token) -> WithSpan<Token> {
         WithSpan::new_unchecked(kind, 0, 1)
     }
-
 
     /// Parse the given tokens into an expression.
     fn run_test(tokens: &Vec<Token>) -> Result<Stmt, Vec<Diagnostic>> {
@@ -89,4 +103,27 @@ mod tests {
         let stmt = run_test(&tokens);
         assert!(stmt.is_err());
     }
+
+
+    #[test]
+    fn test_can_parse_empty_block() {
+        let tokens = vec![Token::LeftBrace, Token::RightBrace];
+        let stmt = run_test(&tokens);
+        assert_eq!(stmt, Ok(Stmt::Block(Vec::new())));
+    }
+
+    #[test]
+    fn test_can_parse_block_with_statements() {
+        let tokens = vec![Token::LeftBrace, Token::Number(1.0), Token::Semicolon, Token::RightBrace];
+        let stmt = run_test(&tokens);
+        assert_eq!(stmt, Ok(Stmt::Block(vec![Stmt::Expression(Expr::Number(1.0))])));
+    }
+
+    #[test]
+    fn test_can_parse_block_with_nested_blocks() {
+        let tokens = vec![Token::LeftBrace, Token::LeftBrace, Token::RightBrace, Token::RightBrace];
+        let stmt = run_test(&tokens);
+        assert_eq!(stmt, Ok(Stmt::Block(vec![Stmt::Block(Vec::new())])));
+    }
+
 }

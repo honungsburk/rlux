@@ -17,5 +17,12 @@ pub fn run(stmt: &Stmt, env: &mut Environment) -> Result<(), RunTimeError> {
             env.define(name.clone(), val);
             Ok(())
         }
+        Stmt::Block(stmts) => {
+            let mut env = env.extend();
+            for stmt in stmts {
+                run(stmt, &mut env)?;
+            }
+            Ok(())
+        }
     }
 }
