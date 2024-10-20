@@ -4,8 +4,9 @@ use clap::Command;
 use rlux::environment::Environment;
 use core::str;
 use std::fs;
-use std::io::{self, BufRead, Write};
+use std::io::{self};
 use std::path::Path;
+use rustyline::error::ReadlineError;
 
 fn main() {
     let matches = Command::new("rlux")
@@ -42,25 +43,29 @@ fn main() {
 }
 
 fn run_prompt() {
-    let stdin = io::stdin();
-    let mut stdout = io::stdout();
-    let mut reader = stdin.lock();
     let mut env = Environment::new();
-    loop {
-        print!("> ");
-        stdout.flush().unwrap();
+    let mut rl = rustyline::DefaultEditor::new().expect("Failed to create editor");
 
-        let mut line = String::new();
-        match reader.read_line(&mut line) {
-            Ok(0) => break, // EOF reached
-            Ok(_) => {
+    loop {
+        let readline = rl.readline("> ");
+        match readline {
+            Ok(line) => {
+                let _ = rl.add_history_entry(line.as_str());
                 match rlux::run(line.trim(), &mut env) {
                     Some(v) => println!("{}", v.to_string()),
                     None => (),
                 }
             },
+            Err(ReadlineError::Interrupted) => {
+                println!("CTRL-C");
+                break;
+            },
+            Err(ReadlineError::Eof) => {
+                println!("CTRL-D");
+                break;
+            },
             Err(err) => {
-                eprintln!("Error reading line: {}", err);
+                eprintln!("Error: {:?}", err);
                 break;
             }
         }
