@@ -10,6 +10,7 @@ pub mod stmt_parser;
 pub mod stmt_eval;
 pub mod program;
 pub mod run_time_error;
+pub mod environment;
 
 use scanner::Scanner;
 

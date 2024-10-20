@@ -1,4 +1,4 @@
-use crate::{expr::{BinaryOp, Expr, UnaryOp}, run_time_error::RunTimeError};
+use crate::{environment::Environment, expr::{BinaryOp, Expr, UnaryOp}, run_time_error::RunTimeError};
 
 
 
@@ -29,16 +29,17 @@ impl Value {
     }
 }
 
-pub fn run(expr: &Expr) -> Result<Value, RunTimeError> {
+pub fn run(expr: &Expr, env: &Environment) -> Result<Value, RunTimeError> {
     // TODO: Use a worklist algorithm to avoid stack overflow
     match expr {
+        Expr::Variable(name) => env.get(name).map(|v| v.clone()).ok_or(RunTimeError::UndefinedVariable(name.clone())),
         Expr::Number(n) => Ok(Value::Number(*n)),
         Expr::String(s) => Ok(Value::String(s.clone())),
         Expr::True => Ok(Value::Boolean(true)),
         Expr::False => Ok(Value::Boolean(false)),
         Expr::Nil => Ok(Value::Nil),
         Expr::Unary(op, expr) => {
-            let val = run(expr)?;
+            let val = run(expr, env)?;
             match (op, val.clone()) {
                 (UnaryOp::Negate, Value::Number(n)) => Ok(Value::Number(-n)),
                 (UnaryOp::Not, value) => Ok(Value::Boolean(!value.is_truthy())),
@@ -49,8 +50,8 @@ pub fn run(expr: &Expr) -> Result<Value, RunTimeError> {
             }
         }
         Expr::Binary(left, op, right) => {
-            let left_val = run(left)?;
-            let right_val = run(right)?;
+            let left_val = run(left, env)?;
+            let right_val = run(right, env)?;
             match (left_val.clone(), op, right_val.clone()) {
                 (Value::Number(l), BinaryOp::Plus, Value::Number(r)) => Ok(Value::Number(l + r)),
                 (Value::Number(l), BinaryOp::Minus, Value::Number(r)) => Ok(Value::Number(l - r)),
@@ -100,6 +101,6 @@ pub fn run(expr: &Expr) -> Result<Value, RunTimeError> {
                 ))),
             }
         }
-        Expr::Grouping(expr) => run(expr),
+        Expr::Grouping(expr) => run(expr, env),
     }
 }

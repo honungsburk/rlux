@@ -2,4 +2,5 @@
 pub enum RunTimeError {
     TypeError(String),
     DivideByZero(String),
+    UndefinedVariable(String),
 }

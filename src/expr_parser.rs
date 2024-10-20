@@ -17,7 +17,7 @@ use crate::{
 /// unary          → ( "!" | "-" ) unary
 ///                | primary ;
 /// primary        → NUMBER | STRING | "true" | "false" | "nil"
-///                | "(" expression ")" ;
+///                | "(" expression ")" | IDENTIFIER ;
 /// ```
 pub fn expression(p: &mut Parser) -> Option<Expr> {
     equality(p)
@@ -135,6 +135,14 @@ fn primary(p: &mut Parser) -> Option<Expr> {
         return p
             .expect(TokenKind::RightParen)
             .map(|_| Expr::grouping(expr));
+    }
+
+    if p.is(TokenKind::Identifier) {
+        let token = p.previous();
+        match &token.value {
+            Token::Identifier(name) => return Some(Expr::variable(name.clone())),
+            _ => panic!("Expected identifier"),
+        }
     }
 
     let token = p.peek_token();

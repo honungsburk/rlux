@@ -1,5 +1,13 @@
-use crate::{parser::Parser, position::{Diagnostic, WithSpan}, run_time_error::RunTimeError, stmt::Stmt, stmt_eval, stmt_parser::{drop_until_statement, statement}, token::Token};
-
+use crate::{
+    environment::Environment,
+    parser::Parser,
+    position::{Diagnostic, WithSpan},
+    run_time_error::RunTimeError,
+    stmt::Stmt,
+    stmt_eval,
+    stmt_parser::{declaration, drop_until_statement},
+    token::Token,
+};
 
 pub struct Program {
     pub statements: Vec<Stmt>,
@@ -11,7 +19,7 @@ impl Program {
         let mut statements = Vec::new();
 
         while !parser.is_at_end() {
-            if let Some(stmt) = statement(&mut parser) {
+            if let Some(stmt) = declaration(&mut parser) {
                 statements.push(stmt);
             } else {
                 // We want to find all statements after the error occurs.
@@ -19,7 +27,6 @@ impl Program {
                 drop_until_statement(&mut parser);
             }
         }
-
 
         if parser.had_error() {
             return Err(Vec::from_iter(
@@ -31,8 +38,9 @@ impl Program {
     }
 
     pub fn run(&self) -> Result<(), RunTimeError> {
+        let mut env = Environment::new();
         for stmt in &self.statements {
-            stmt_eval::run(stmt)?;
+            stmt_eval::run(stmt, &mut env)?;
         }
         Ok(())
     }

@@ -1,6 +1,21 @@
 use crate::{
- expr_parser::expression, parser::Parser, stmt::Stmt, token::TokenKind
+ expr_parser::expression, parser::Parser, stmt::Stmt, token::{Token, TokenKind}
 };
+
+
+pub fn declaration(p: &mut Parser) -> Option<Stmt> {
+    if p.is(TokenKind::Var) {
+        let name = p.expect(TokenKind::Identifier)?;
+        p.expect(TokenKind::Equal)?;
+        let expr = expression(p)?;
+        p.expect(TokenKind::Semicolon)?;
+        match &name.value {
+            Token::Identifier(name) => return Some(Stmt::Var(name.clone(), expr)),
+            _ => panic!("Expected identifier"),
+        }
+    }
+    statement(p)
+}
 
 
 pub fn statement(p: &mut Parser) -> Option<Stmt> {

@@ -8,6 +8,7 @@ pub enum Expr {
     Nil,
     Unary(UnaryOp, Box<Expr>),
     Binary(Box<Expr>, BinaryOp, Box<Expr>),
+    Variable(String),
 }
 
 impl Expr {
@@ -42,6 +43,10 @@ impl Expr {
     pub fn binary(left: Expr, op: BinaryOp, right: Expr) -> Expr {
         Expr::Binary(Box::new(left), op, Box::new(right))
     }
+
+    pub fn variable(name: String) -> Expr {
+        Expr::Variable(name)
+    }
 }
 
 impl StructuralPrinter for Expr {
@@ -62,6 +67,7 @@ impl StructuralPrinter for Expr {
                 op.print_structural(),
                 right.print_structural()
             ),
+            Expr::Variable(name) => name.clone(),
         }
     }
 }

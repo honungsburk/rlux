@@ -4,6 +4,7 @@ use crate::expr::{Expr, StructuralPrinter};
 pub enum Stmt {
     Expression(Expr),
     Print(Expr),
+    Var(String, Expr),
 }
 
 impl StructuralPrinter for Stmt {
@@ -11,6 +12,7 @@ impl StructuralPrinter for Stmt {
         match self {
             Stmt::Expression(expr) => format!("Expr({})", expr.print_structural()),
             Stmt::Print(expr) => format!("PrintExpr({})", expr.print_structural()),
+            Stmt::Var(name, expr) => format!("Var({}, {})", name, expr.print_structural()),
         }
     }
 }
