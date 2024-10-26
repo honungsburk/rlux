@@ -1,13 +1,17 @@
 use crate::{
- expr_parser::expression, parser::Parser, stmt::Stmt, token::{Token, TokenKind}
+ expr::Expr, expr_parser::expression, parser::Parser, stmt::Stmt, token::{Token, TokenKind}
 };
 
 
 pub fn declaration(p: &mut Parser) -> Option<Stmt> {
     if p.is(TokenKind::Var) {
         let name = p.expect(TokenKind::Identifier)?;
-        p.expect(TokenKind::Equal)?;
-        let expr = expression(p)?;
+        let expr = if p.check(TokenKind::Equal) {
+            p.expect(TokenKind::Equal)?;
+            expression(p)?
+        } else {
+            Expr::nil()
+        };
         p.expect(TokenKind::Semicolon)?;
         match &name.value {
             Token::Identifier(name) => return Some(Stmt::Var(name.clone(), expr)),
@@ -19,19 +23,81 @@ pub fn declaration(p: &mut Parser) -> Option<Stmt> {
 
 
 fn statement(p: &mut Parser) -> Option<Stmt> {
-    if p.check(TokenKind::If) {
+    if p.check(TokenKind::For) {
+        return for_statement(p);
+    } else if p.check(TokenKind::If) {
         return if_statement(p);
     } else if p.is(TokenKind::Print) {
         let expr = expression(p)?;
         p.expect(TokenKind::Semicolon)?;
         return Some(Stmt::Print(expr));
-    } else if p.check(TokenKind::LeftBrace) {
+    } else if p.check(TokenKind::While) {
+        return while_statement(p);
+    }else if p.check(TokenKind::LeftBrace) {
         return block(p);
     } else {
         let expr = expression(p)?;
         p.expect(TokenKind::Semicolon)?;
         return Some(Stmt::Expression(expr));
     }
+}
+
+fn for_statement(p: &mut Parser) -> Option<Stmt> {
+    p.expect(TokenKind::For)?;
+    p.expect(TokenKind::LeftParen)?;
+
+    let initializer: Option<Stmt> = if p.is(TokenKind::Semicolon) {
+        None
+    } else if p.check(TokenKind::Var) {
+        Some(declaration(p)?)
+    } else {
+        let expr = expression(p)?;
+        p.expect(TokenKind::Semicolon)?;
+        Some(Stmt::Expression(expr))
+    };
+
+    let condition = if p.check(TokenKind::Semicolon) {
+        Expr::true_expr()
+    } else {
+        expression(p)?
+    };
+
+    p.expect(TokenKind::Semicolon)?;
+
+    let increment = if p.check(TokenKind::RightParen) {
+        None
+    } else {
+        Some(expression(p)?)
+    };
+
+    p.expect(TokenKind::RightParen)?;
+    let body = statement(p)?;
+
+    // Construct the for loop as a while loop
+    let while_body = if let Some(inc) = increment {
+        Stmt::Block(vec![body, Stmt::Expression(inc)])
+    } else {
+        body
+    };
+
+    let while_stmt = Stmt::While(condition, Box::new(while_body));
+
+    let for_stmt = if let Some(init) = initializer {
+        Stmt::Block(vec![init, while_stmt])
+    } else {
+        while_stmt
+    };
+
+    Some(for_stmt)
+}
+
+fn while_statement(p: &mut Parser) -> Option<Stmt> {
+    p.expect(TokenKind::While)?;
+    p.expect(TokenKind::LeftParen)?;
+    let cond = expression(p)?;
+    p.expect(TokenKind::RightParen)?;
+    let body = statement(p)?;
+    Some(Stmt::While(cond, Box::new(body)))
 }
 
 fn if_statement(p: &mut Parser) -> Option<Stmt> {

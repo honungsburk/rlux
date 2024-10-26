@@ -37,5 +37,12 @@ pub fn run(stmt: &Stmt, env: &mut Environment) -> Result<Option<Value>, RunTimeE
                 Ok(None)
             }
         }
+        Stmt::While(cond, body) => {
+            let mut last_val = None;
+            while eval_expr(cond, env)?.is_truthy() {
+                last_val = run(body, env)?;
+            }
+            Ok(last_val)
+        }
     }
 }

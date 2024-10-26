@@ -31,7 +31,7 @@ pub fn expression(p: &mut Parser) -> Option<Expr> {
 }
 
 fn assignment(p: &mut Parser) -> Option<Expr> {
-    let expr = equality(p)?;
+    let expr = logical_or(p)?;
     if p.is(TokenKind::Equal) {
         let previous = p.previous();
         let value = assignment(p)?;
