@@ -4,6 +4,7 @@ use crate::stmt::Stmt;
 use crate::expr_eval::{run as eval_expr, Value};
 
 /// Run a statement and return the last value of the statement.
+/// 
 /// The return value is used by the repl to print the last value of the statement.
 pub fn run(stmt: &Stmt, env: &mut Environment) -> Result<Option<Value>, RunTimeError> {
     match stmt {
@@ -25,6 +26,16 @@ pub fn run(stmt: &Stmt, env: &mut Environment) -> Result<Option<Value>, RunTimeE
                 last_val = run(stmt, &mut env)?;
             }
             Ok(last_val)
+        }
+        Stmt::If(cond, then, else_) => {
+            let cond_val = eval_expr(cond, env)?;
+            if cond_val.is_truthy() {
+                run(then, env)
+            } else if let Some(else_) = else_ {
+                run(else_, env)
+            } else {
+                Ok(None)
+            }
         }
     }
 }

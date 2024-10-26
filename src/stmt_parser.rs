@@ -19,7 +19,9 @@ pub fn declaration(p: &mut Parser) -> Option<Stmt> {
 
 
 fn statement(p: &mut Parser) -> Option<Stmt> {
-    if p.is(TokenKind::Print) {
+    if p.check(TokenKind::If) {
+        return if_statement(p);
+    } else if p.is(TokenKind::Print) {
         let expr = expression(p)?;
         p.expect(TokenKind::Semicolon)?;
         return Some(Stmt::Print(expr));
@@ -29,6 +31,20 @@ fn statement(p: &mut Parser) -> Option<Stmt> {
         let expr = expression(p)?;
         p.expect(TokenKind::Semicolon)?;
         return Some(Stmt::Expression(expr));
+    }
+}
+
+fn if_statement(p: &mut Parser) -> Option<Stmt> {
+    p.expect(TokenKind::If)?;
+    p.expect(TokenKind::LeftParen)?;
+    let cond = expression(p)?;
+    p.expect(TokenKind::RightParen)?;
+    let then = statement(p)?;
+    if p.is(TokenKind::Else) { 
+        let stmt = statement(p)?;
+        Some(Stmt::If(cond, Box::new(then), Some(Box::new(stmt))))
+    } else { 
+        Some(Stmt::If(cond, Box::new(then), None))
     }
 }
 

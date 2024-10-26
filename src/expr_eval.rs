@@ -32,6 +32,22 @@ impl Value {
 pub fn run(expr: &Expr, env: &mut Environment) -> Result<Value, RunTimeError> {
     // TODO: Use a worklist algorithm to avoid stack overflow
     match expr {
+        Expr::LogicalOr(left, right) => {
+            let left_val = run(left, env)?;
+            if left_val.is_truthy() {
+                Ok(left_val)
+            } else {
+                run(right, env)
+            }
+        }
+        Expr::LogicalAnd(left, right) => {
+            let left_val = run(left, env)?;
+            if !left_val.is_truthy() {
+                Ok(left_val)
+            } else {
+                run(right, env)
+            }
+        }
         Expr::Assignment(name, expr) => {
             let val = run(expr, env)?;
             if env.assign(name.clone(), val.clone()) {

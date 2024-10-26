@@ -6,6 +6,8 @@ pub enum Expr {
     True,
     False,
     Nil,
+    LogicalOr(Box<Expr>, Box<Expr>),
+    LogicalAnd(Box<Expr>, Box<Expr>),
     Unary(UnaryOp, Box<Expr>),
     Binary(Box<Expr>, BinaryOp, Box<Expr>),
     Variable(String),
@@ -45,6 +47,14 @@ impl Expr {
         Expr::Binary(Box::new(left), op, Box::new(right))
     }
 
+    pub fn logical_or(left: Expr, right: Expr) -> Expr {
+        Expr::LogicalOr(Box::new(left), Box::new(right))
+    }
+
+    pub fn logical_and(left: Expr, right: Expr) -> Expr {
+        Expr::LogicalAnd(Box::new(left), Box::new(right))
+    }
+
     pub fn variable(name: String) -> Expr {
         Expr::Variable(name)
     }
@@ -57,6 +67,8 @@ impl Expr {
 impl StructuralPrinter for Expr {
     fn print_structural(&self) -> String {
         match self {
+            Expr::LogicalOr(left, right) => format!("({} or {})", left.print_structural(), right.print_structural()),
+            Expr::LogicalAnd(left, right) => format!("({} and {})", left.print_structural(), right.print_structural()),
             Expr::Number(n) => n.to_string(),
             Expr::String(s) => format!("\"{}\"", s),
             Expr::Nil => "nil".to_string(),

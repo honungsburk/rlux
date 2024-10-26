@@ -11,8 +11,12 @@ use crate::{
 /// ```bnf
 /// expression     → assignment ;
 ///
-/// assignment     → IDENTIFIER "=" expression ;
-///
+/// assignment     → IDENTIFIER "=" expression 
+///               | logical_or ;
+/// 
+/// logical_or     → logical_and ( "or" logical_and )* ;
+/// logical_and    → equality ( "and" equality )* ;
+/// 
 /// equality       → comparison ( ( "!=" | "==" ) comparison )* ;
 /// comparison     → term ( ( ">" | ">=" | "<" | "<=" ) term )* ;
 /// term           → factor ( ( "-" | "+" ) factor )* ;
@@ -42,6 +46,23 @@ fn assignment(p: &mut Parser) -> Option<Expr> {
     Some(expr)
 }
 
+fn logical_or(p: &mut Parser) -> Option<Expr> {
+    let mut expr = logical_and(p)?;
+    while p.is(TokenKind::Or) {
+        let right = logical_and(p)?;
+        expr = Expr::logical_or(expr, right);
+    }
+    Some(expr)
+}
+
+fn logical_and(p: &mut Parser) -> Option<Expr> {
+    let mut expr = equality(p)?;
+    while p.is(TokenKind::And) {
+        let right = equality(p)?;
+        expr = Expr::logical_and(expr, right);
+    }
+    Some(expr)
+}
 
 fn equality(p: &mut Parser) -> Option<Expr> {
     let mut expr = comparison(p)?;
