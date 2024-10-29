@@ -2,7 +2,7 @@
 //!
 //!
 
-use super::{value::NativeFunction, Environment, LuxCallable, LuxValue};
+use super::{Environment, LuxCallable, LuxValue};
 use std::{
     fmt,
     time::{SystemTime, UNIX_EPOCH},
@@ -39,6 +39,7 @@ impl LuxCallable for Clock {
     }
 }
 
+/// Load the standard library into an environment.
 pub fn load(env: &mut Environment) {
     let clock = LuxValue::native_function("clock", 0, |_| {
         let start = SystemTime::now();

@@ -20,8 +20,10 @@ pub struct Interpreter {
 impl Interpreter {
 
     pub fn new() -> Self {
+        let mut env = Environment::new();
+        lib::load(&mut env); 
         Self {
-            env: Environment::new()
+            env: env
         }
     }
 
