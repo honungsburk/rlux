@@ -4,7 +4,9 @@ use crate::{
 
 
 pub fn declaration(p: &mut Parser) -> Option<Stmt> {
-    if p.is(TokenKind::Var) {
+    if p.is(TokenKind::Fun){
+        return function(p);
+    } else if p.is(TokenKind::Var) {
         let name = p.expect(TokenKind::Identifier)?;
         let expr = if p.check(TokenKind::Equal) {
             p.expect(TokenKind::Equal)?;
@@ -20,6 +22,50 @@ pub fn declaration(p: &mut Parser) -> Option<Stmt> {
     }
     statement(p)
 }
+
+fn function(p: &mut Parser) -> Option<Stmt> {
+
+    // signature
+
+    let name = p.expect(TokenKind::Identifier)?;
+
+
+    let name = if let Token::Identifier(id) = name.value.clone() {
+        id
+    } else {
+        panic!("Expected an indentifer but it wasn't")
+    };
+
+    p.expect(TokenKind::LeftParen)?;
+    let mut parameters = Vec::new();
+
+    if !p.check(TokenKind::RightParen) {
+        loop {
+            if parameters.len() > 255 {
+                p.error("Can't have more than 255 parameters.", p.peek_token().span);
+            }
+            let par = p.expect(TokenKind::Identifier)?;
+
+            if let Token::Identifier(id) = par.value.clone() {
+                parameters.push(id);
+            } else {
+                panic!("Expected an indentifer but it wasn't")
+            }
+
+            if !p.is(TokenKind::Comma){
+                break;
+            }
+        }
+    }
+    p.expect(TokenKind::RightParen);
+
+    // body
+
+    let body = block(p)?;
+
+    Some(Stmt::Function(name, parameters, Box::new(body)))
+}
+
 
 
 fn statement(p: &mut Parser) -> Option<Stmt> {

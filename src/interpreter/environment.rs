@@ -5,6 +5,7 @@ use super::LuxValue;
 
 
 
+#[derive(Clone)]
 struct EnvNode {
     vars: HashMap<String, LuxValue>,
     parent: Option<Rc<RefCell<EnvNode>>>,
@@ -17,6 +18,10 @@ impl EnvNode {
 
     pub fn with_parent(parent: Rc<RefCell<EnvNode>>) -> Self {
         Self { vars: HashMap::new(), parent: Some(parent) }
+    }
+
+    pub fn parent(&self) -> Option<Rc<RefCell<EnvNode>>> {
+        self.parent.clone()
     }
 
     pub fn define(&mut self, name: String, value: LuxValue) {
@@ -63,6 +68,8 @@ impl fmt::Debug for EnvNode {
     }
 }
 
+
+#[derive(Clone)]
 pub struct Environment {
     node: Rc<RefCell<EnvNode>>,
 }
@@ -72,11 +79,18 @@ impl Environment {
         Self { node: Rc::new(RefCell::new(EnvNode::new())) }
     }
 
+
     pub fn extend(&self) -> Self {
         let node = Rc::new(RefCell::new(
             EnvNode::with_parent(self.node.clone())
         ));
         Environment { node }
+    }
+
+    pub fn pop(&self)  -> Option<Self> {
+        self.node.borrow().parent.clone().map(|node| {
+            Environment { node }
+        })
     }
 
     pub fn assign(&mut self, name: String, value: LuxValue) -> bool {

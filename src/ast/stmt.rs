@@ -8,6 +8,7 @@ pub enum Stmt {
     While(Expr, Box<Stmt>),
     Var(String, Expr),
     Block(Vec<Stmt>),
+    Function(String, Vec<String>, Box<Stmt>)
 }
 
 impl Stmt {
@@ -34,12 +35,13 @@ impl Stmt {
 impl StructuralPrinter for Stmt {
     fn print_structural(&self) -> String {
         match self {
-            Stmt::Expression(expr) => format!("Expr({})", expr.print_structural()),
-            Stmt::Print(expr) => format!("PrintExpr({})", expr.print_structural()),
-            Stmt::Var(name, expr) => format!("Var({}, {})", name, expr.print_structural()),
-            Stmt::Block(stmts) => format!("Block({})", stmts.iter().map(|s| s.print_structural()).collect::<Vec<String>>().join(", ")),
-            Stmt::If(cond, then, else_) => format!("If({}, {}, {})", cond.print_structural(), then.print_structural(), else_.as_ref().map(|e| e.print_structural()).unwrap_or("None".to_string())),
-            Stmt::While(cond, body) => format!("While({}, {})", cond.print_structural(), body.print_structural()),
+            Stmt::Function(name, args, body) => format!("fun {}({}){}", name, args.join(", "), body.print_structural()),
+            Stmt::Expression(expr) => format!("{};", expr.print_structural()),
+            Stmt::Print(expr) => format!("print {};", expr.print_structural()),
+            Stmt::Var(name, expr) => format!("var {} = {};", name, expr.print_structural()),
+            Stmt::Block(stmts) => format!("{{\n{}\n}}", stmts.iter().map(|s| s.print_structural()).collect::<Vec<String>>().join(", ")),
+            Stmt::If(cond, then, else_) => format!("if({}) {} else {}", cond.print_structural(), then.print_structural(), else_.as_ref().map(|e| e.print_structural()).unwrap_or("None".to_string())),
+            Stmt::While(cond, body) => format!("while ({}) {}", cond.print_structural(), body.print_structural()),
         }
     }
 }

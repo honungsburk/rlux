@@ -4,7 +4,7 @@ use std::{
     rc::Rc,
 };
 
-use super::{Interpreter, RunTimeError};
+use super::{Environment, Interpreter, RunTimeError, Stmt};
 
 pub trait LuxCallable: Display + Debug {
     fn call(
@@ -68,6 +68,21 @@ impl LuxValue {
             fn_ptr: fn_ptr,
             arity: arity,
         })
+    }
+
+    pub fn function(
+        name: String,
+        params: Vec<String>,
+        body: Box<Stmt>,
+        env: Environment
+    ) -> Self {
+        Self::callable(LuxFunction {
+            decl: Rc::new(FunDecl {
+                name, params, body
+            }),
+            env
+        })
+
     }
 
     pub fn is_truthy(&self) -> bool {
@@ -137,6 +152,8 @@ impl Debug for LuxValue {
     }
 }
 
+// Native Function 
+
 /// Function provided by the interpreter. Used by the standard library.
 pub struct NativeFunction {
     pub name: &'static str,
@@ -171,5 +188,50 @@ impl Debug for NativeFunction {
             .field("fn_ptr", &"fn_ptr")
             .field("arity", &self.arity)
             .finish()
+    }
+}
+
+// Function 
+
+
+#[derive(Debug, Clone)]
+pub struct FunDecl {
+    pub name: String,
+    pub params: Vec<String>,
+    pub body: Box<Stmt>,
+}
+
+#[derive(Debug, Clone)]
+pub struct LuxFunction {
+    pub decl: Rc<FunDecl>,
+    pub env: Environment,
+}
+
+impl LuxCallable for LuxFunction {
+    fn call(
+        self: Rc<Self>,
+        interpreter: &mut Interpreter,
+        args: &[LuxValue],
+    ) -> Result<LuxValue, RunTimeError> {
+        let mut env = Environment::extend(&self.env);
+        for (param, value) in self.decl.params.iter().zip(args) {
+            env.define(param.clone(), value.clone());
+        }
+        let real_returned_value = match interpreter.eval_stmt_with(&self.decl.body, env) {
+            Ok(None) => LuxValue::Nil,
+            Ok(Some(value)) => value,
+            Err(other) => return Err(other),
+        };
+        Ok(real_returned_value)
+    }
+
+    fn arity(&self) -> usize {
+        self.decl.params.len()
+    }
+}
+
+impl Display for LuxFunction {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "<fun {}>", self.decl.name)
     }
 }

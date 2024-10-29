@@ -3,6 +3,8 @@ pub mod run_time_error;
 pub mod environment;
 pub mod lib;
 
+use std::mem;
+
 pub use value::LuxValue;
 pub use value::LuxCallable;
 pub use run_time_error::RunTimeError;
@@ -13,6 +15,7 @@ use crate::program::Program;
 
 #[derive(Debug)]
 pub struct Interpreter {
+    globals: Environment,
     env: Environment,
 }
 
@@ -20,26 +23,23 @@ pub struct Interpreter {
 impl Interpreter {
 
     pub fn new() -> Self {
-        let mut env = Environment::new();
-        lib::load(&mut env); 
+        let mut globals = Environment::new();
+        lib::load(&mut globals); 
         Self {
-            env: env
+            env: globals.extend(),
+            globals: globals,
         }
     }
 
     pub fn with_env(env: Environment) -> Self {
         Self {
-            env: env
+            env: env.extend(),
+            globals: env,
         }
     }
 
-
     pub fn run(&mut self, program: Program) -> Result<Option<LuxValue>, RunTimeError> {
-        let mut last_val = None;
-        for stmt in &program.statements {
-            last_val = self.eval_stmt(stmt)?;
-        }
-        Ok(last_val)
+        self.eval_stmts(&program.statements)
     }
 
 
@@ -47,12 +47,31 @@ impl Interpreter {
     // Statements
     //
 
+    pub fn eval_stmts(&mut self, stmts: &Vec<Stmt>) -> Result<Option<LuxValue>, RunTimeError>  {
+        let mut last_val = None;
+        for stmt in stmts {
+            last_val = self.eval_stmt(stmt)?;
+        }
+        Ok(last_val)
+    }
+
+    pub fn eval_stmt_with(&mut self, stmt: &Stmt, new_env: Environment) -> Result<Option<LuxValue>, RunTimeError> {
+        let old_env = mem::replace(&mut self.env, new_env);
+        let result = self.eval_stmt(stmt);
+        self.env = old_env;
+        result
+    }
+
 
     /// Run a statement and return the last value of the statement.
     /// 
     /// The return value is used by the repl to print the last value of the statement.
     fn eval_stmt(&mut self, stmt: &Stmt) -> Result<Option<LuxValue>, RunTimeError> {
         match stmt {
+            Stmt::Function(name, args, body) => {
+                self.env.define(name.clone(), LuxValue::function(name.clone(), args.clone(), body.clone(), self.env.clone()));
+                Ok(None)
+            }
             Stmt::Expression(expr) => {self.eval_expr(expr).map(Some)},
             Stmt::Print(expr) => {
                 let val = self.eval_expr(expr)?;
@@ -65,12 +84,7 @@ impl Interpreter {
                 Ok(Some(val))
             }
             Stmt::Block(stmts) => {
-                self.env = self.env.extend();
-                let mut last_val = None;
-                for stmt in stmts {
-                    last_val = self.eval_stmt(stmt)?;
-                }
-                Ok(last_val)
+                self.eval_block(stmts, self.env.extend())
             }
             Stmt::If(cond, then, else_) => {
                 let cond_val = self.eval_expr(cond)?;
@@ -91,6 +105,15 @@ impl Interpreter {
             }
         }
     }
+
+
+    pub(crate) fn eval_block(&mut self, stmts: &Vec<Stmt>, new_env: Environment) -> Result<Option<LuxValue>, RunTimeError> {
+        let old_env = mem::replace(&mut self.env, new_env);
+        let result = self.eval_stmts(stmts);
+        self.env = old_env;
+        result
+    }
+
 
 
     //
