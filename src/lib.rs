@@ -1,10 +1,9 @@
-pub mod expr;
 pub mod expr_parser;
 pub mod parser;
 pub mod position;
 pub mod scanner;
 pub mod token;
-pub mod stmt;
+pub mod ast;
 pub mod stmt_parser;
 pub mod program;
 pub mod interpreter;

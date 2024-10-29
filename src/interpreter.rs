@@ -8,12 +8,8 @@ pub use value::LuxCallable;
 pub use run_time_error::RunTimeError;
 pub use environment::Environment;
 
-use crate::expr::BinaryOp;
-use crate::expr::Expr;
-use crate::expr::UnaryOp;
+use crate::ast::*;
 use crate::program::Program;
-
-use crate::stmt::Stmt;
 
 #[derive(Debug)]
 pub struct Interpreter {

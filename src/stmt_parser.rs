@@ -1,5 +1,5 @@
 use crate::{
- expr::Expr, expr_parser::expression, parser::Parser, stmt::Stmt, token::{Token, TokenKind}
+ ast::Expr, expr_parser::expression, parser::Parser, ast::Stmt, token::{Token, TokenKind}
 };
 
 
@@ -143,7 +143,7 @@ pub fn drop_until_statement(p: &mut Parser) {
 
 #[cfg(test)]
 mod tests {
-    use crate::{expr::Expr, position::{Diagnostic, WithSpan}, token::Token};
+    use crate::{ast::Expr, position::{Diagnostic, WithSpan}, token::Token};
 
     use super::*;
 

@@ -1,4 +1,4 @@
-use crate::expr::{Expr, StructuralPrinter};
+use super::{Expr, StructuralPrinter};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Stmt {

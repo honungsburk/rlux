@@ -1,3 +1,5 @@
+use super::StructuralPrinter;
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum Expr {
     Number(f64),
@@ -157,6 +159,3 @@ impl StructuralPrinter for BinaryOp {
     }
 }
 
-pub trait StructuralPrinter {
-    fn print_structural(&self) -> String;
-}

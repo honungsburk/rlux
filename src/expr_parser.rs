@@ -1,5 +1,5 @@
 use crate::{
-    expr::{BinaryOp, Expr, UnaryOp},
+    ast::expr::{BinaryOp, Expr, UnaryOp},
     parser::Parser,
     token::{Token, TokenKind},
 };
@@ -239,7 +239,7 @@ fn primary(p: &mut Parser) -> Option<Expr> {
 mod tests {
     use super::*;
     use crate::{
-        expr::{BinaryOp, Expr},
+        ast::expr::{BinaryOp, Expr},
         token::Token,
         position::{Diagnostic, WithSpan},
     };

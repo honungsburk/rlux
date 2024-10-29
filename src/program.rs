@@ -1,5 +1,5 @@
 use crate::{
-     parser::Parser, position::{Diagnostic, WithSpan}, stmt::Stmt, stmt_parser::{declaration, drop_until_statement}, token::Token,
+     parser::Parser, position::{Diagnostic, WithSpan}, ast::Stmt, stmt_parser::{declaration, drop_until_statement}, token::Token,
 };
 
 
