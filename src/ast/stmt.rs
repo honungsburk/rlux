@@ -8,6 +8,7 @@ pub enum Stmt {
     While(Expr, Box<Stmt>),
     Var(String, Expr),
     Block(Vec<Stmt>),
+    Return(Expr),
     Function(String, Vec<String>, Box<Stmt>)
 }
 
@@ -42,6 +43,7 @@ impl StructuralPrinter for Stmt {
             Stmt::Block(stmts) => format!("{{\n{}\n}}", stmts.iter().map(|s| s.print_structural()).collect::<Vec<String>>().join(", ")),
             Stmt::If(cond, then, else_) => format!("if({}) {} else {}", cond.print_structural(), then.print_structural(), else_.as_ref().map(|e| e.print_structural()).unwrap_or("None".to_string())),
             Stmt::While(cond, body) => format!("while ({}) {}", cond.print_structural(), body.print_structural()),
+            Stmt::Return(expr) => format!("return {};", expr.print_structural()),
         }
     }
 }

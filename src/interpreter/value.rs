@@ -4,14 +4,14 @@ use std::{
     rc::Rc,
 };
 
-use super::{Environment, Interpreter, RunTimeError, Stmt};
+use super::{Environment, Interpreter, RuntimeError, Stmt};
 
 pub trait LuxCallable: Display + Debug {
     fn call(
         self: Rc<Self>,
         interpreter: &mut Interpreter,
         args: &[LuxValue],
-    ) -> Result<LuxValue, RunTimeError>;
+    ) -> Result<LuxValue, RuntimeError>;
     fn arity(&self) -> usize;
 }
 
@@ -61,7 +61,7 @@ impl LuxValue {
     pub fn native_function(
         name: &'static str,
         arity: usize,
-        fn_ptr: fn(args: &[LuxValue]) -> Result<LuxValue, RunTimeError>,
+        fn_ptr: fn(args: &[LuxValue]) -> Result<LuxValue, RuntimeError>,
     ) -> Self {
         LuxValue::callable(NativeFunction {
             name: name,
@@ -157,7 +157,7 @@ impl Debug for LuxValue {
 /// Function provided by the interpreter. Used by the standard library.
 pub struct NativeFunction {
     pub name: &'static str,
-    pub fn_ptr: fn(args: &[LuxValue]) -> Result<LuxValue, RunTimeError>,
+    pub fn_ptr: fn(args: &[LuxValue]) -> Result<LuxValue, RuntimeError>,
     pub arity: usize,
 }
 
@@ -166,7 +166,7 @@ impl LuxCallable for NativeFunction {
         self: Rc<Self>,
         _: &mut Interpreter,
         args: &[LuxValue],
-    ) -> Result<LuxValue, RunTimeError> {
+    ) -> Result<LuxValue, RuntimeError> {
         (self.fn_ptr)(args)
     }
 
@@ -212,14 +212,14 @@ impl LuxCallable for LuxFunction {
         self: Rc<Self>,
         interpreter: &mut Interpreter,
         args: &[LuxValue],
-    ) -> Result<LuxValue, RunTimeError> {
+    ) -> Result<LuxValue, RuntimeError> {
         let mut env = Environment::extend(&self.env);
         for (param, value) in self.decl.params.iter().zip(args) {
             env.define(param.clone(), value.clone());
         }
         let real_returned_value = match interpreter.eval_stmt_with(&self.decl.body, env) {
-            Ok(None) => LuxValue::Nil,
-            Ok(Some(value)) => value,
+            Ok(_) => LuxValue::Nil,
+            Err(RuntimeError::Return(value)) => value,
             Err(other) => return Err(other),
         };
         Ok(real_returned_value)

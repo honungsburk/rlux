@@ -1,5 +1,5 @@
 use crate::{
- ast::Expr, expr_parser::expression, parser::Parser, ast::Stmt, token::{Token, TokenKind}
+ ast::{Expr, Stmt}, expr_parser::expression, interpreter::LuxValue, parser::Parser, token::{Token, TokenKind}
 };
 
 
@@ -77,6 +77,14 @@ fn statement(p: &mut Parser) -> Option<Stmt> {
         let expr = expression(p)?;
         p.expect(TokenKind::Semicolon)?;
         return Some(Stmt::Print(expr));
+    } else if p.is(TokenKind::Return){
+        if p.is(TokenKind::Semicolon) {
+            return Some(Stmt::Return(Expr::Nil))
+        } else {
+            let expr = expression(p)?;
+            p.expect(TokenKind::Semicolon)?;
+            return Some(Stmt::Return(expr))
+        }
     } else if p.check(TokenKind::While) {
         return while_statement(p);
     }else if p.check(TokenKind::LeftBrace) {
@@ -87,6 +95,9 @@ fn statement(p: &mut Parser) -> Option<Stmt> {
         return Some(Stmt::Expression(expr));
     }
 }
+
+
+
 
 fn for_statement(p: &mut Parser) -> Option<Stmt> {
     p.expect(TokenKind::For)?;

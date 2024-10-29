@@ -7,7 +7,7 @@ use std::mem;
 
 pub use value::LuxValue;
 pub use value::LuxCallable;
-pub use run_time_error::RunTimeError;
+pub use run_time_error::RuntimeError;
 pub use environment::Environment;
 
 use crate::ast::*;
@@ -38,7 +38,7 @@ impl Interpreter {
         }
     }
 
-    pub fn run(&mut self, program: Program) -> Result<Option<LuxValue>, RunTimeError> {
+    pub fn run(&mut self, program: Program) -> Result<Option<LuxValue>, RuntimeError> {
         self.eval_stmts(&program.statements)
     }
 
@@ -47,7 +47,7 @@ impl Interpreter {
     // Statements
     //
 
-    pub fn eval_stmts(&mut self, stmts: &Vec<Stmt>) -> Result<Option<LuxValue>, RunTimeError>  {
+    pub fn eval_stmts(&mut self, stmts: &Vec<Stmt>) -> Result<Option<LuxValue>, RuntimeError>  {
         let mut last_val = None;
         for stmt in stmts {
             last_val = self.eval_stmt(stmt)?;
@@ -55,7 +55,7 @@ impl Interpreter {
         Ok(last_val)
     }
 
-    pub fn eval_stmt_with(&mut self, stmt: &Stmt, new_env: Environment) -> Result<Option<LuxValue>, RunTimeError> {
+    pub fn eval_stmt_with(&mut self, stmt: &Stmt, new_env: Environment) -> Result<Option<LuxValue>, RuntimeError> {
         let old_env = mem::replace(&mut self.env, new_env);
         let result = self.eval_stmt(stmt);
         self.env = old_env;
@@ -66,8 +66,12 @@ impl Interpreter {
     /// Run a statement and return the last value of the statement.
     /// 
     /// The return value is used by the repl to print the last value of the statement.
-    fn eval_stmt(&mut self, stmt: &Stmt) -> Result<Option<LuxValue>, RunTimeError> {
+    fn eval_stmt(&mut self, stmt: &Stmt) -> Result<Option<LuxValue>, RuntimeError> {
         match stmt {
+            Stmt::Return(expr) => {
+                let value = self.eval_expr(expr)?;
+                Err(RuntimeError::Return(value))
+            }
             Stmt::Function(name, args, body) => {
                 self.env.define(name.clone(), LuxValue::function(name.clone(), args.clone(), body.clone(), self.env.clone()));
                 Ok(None)
@@ -107,7 +111,7 @@ impl Interpreter {
     }
 
 
-    pub(crate) fn eval_block(&mut self, stmts: &Vec<Stmt>, new_env: Environment) -> Result<Option<LuxValue>, RunTimeError> {
+    pub(crate) fn eval_block(&mut self, stmts: &Vec<Stmt>, new_env: Environment) -> Result<Option<LuxValue>, RuntimeError> {
         let old_env = mem::replace(&mut self.env, new_env);
         let result = self.eval_stmts(stmts);
         self.env = old_env;
@@ -120,7 +124,7 @@ impl Interpreter {
     // Expressions
     //
 
-    pub fn eval_expr(&mut self, expr: &Expr) -> Result<LuxValue, RunTimeError> {
+    pub fn eval_expr(&mut self, expr: &Expr) -> Result<LuxValue, RuntimeError> {
         // TODO: Use a worklist algorithm to avoid stack overflow
         match expr {
             Expr::Call(callee, arguments) => {
@@ -133,7 +137,7 @@ impl Interpreter {
                 let callable = match callee {
                     LuxValue::Callable(callable) => callable,
                     _ => {
-                        return Err(RunTimeError::UnsupportedType(
+                        return Err(RuntimeError::UnsupportedType(
                             format!(
                                 "Type `{}` is not callable, can only call functions and classes",
                                 callee.type_name()
@@ -142,7 +146,7 @@ impl Interpreter {
                 };
 
                 if callable.arity() != args.len() {
-                    return Err(RunTimeError::UnsupportedType(format!(
+                    return Err(RuntimeError::UnsupportedType(format!(
                             "Expected {} arguments, but got {}",
                             callable.arity(),
                             args.len()
@@ -172,10 +176,10 @@ impl Interpreter {
                 if self.env.assign(name.clone(), val.clone()) {
                     Ok(val)
                 } else {
-                    Err(RunTimeError::UndefinedVariable(name.clone()))
+                    Err(RuntimeError::UndefinedVariable(name.clone()))
                 }
             }
-            Expr::Variable(name) => self.env.get(name).map(|v| v.clone()).ok_or(RunTimeError::UndefinedVariable(name.clone())),
+            Expr::Variable(name) => self.env.get(name).map(|v| v.clone()).ok_or(RuntimeError::UndefinedVariable(name.clone())),
             Expr::Number(n) => Ok(LuxValue::Number(*n)),
             Expr::String(s) => Ok(LuxValue::String(s.clone())),
             Expr::True => Ok(LuxValue::Boolean(true)),
@@ -187,7 +191,7 @@ impl Interpreter {
                     UnaryOp::Negate => {
                         match val {
                             LuxValue::Number(n) => Ok(LuxValue::Number(-n)),
-                            unexpected => Err(RunTimeError::UnsupportedType(format!(
+                            unexpected => Err(RuntimeError::UnsupportedType(format!(
                                 "Bad type for unary `-` operator: `{}`",
                                 unexpected.type_name()
                             )))
@@ -208,7 +212,7 @@ impl Interpreter {
                     BinaryOp::Plus => match (left_val, right_val) {
                         (LuxValue::Number(left), LuxValue::Number(right)) => Ok(LuxValue::Number(left + right)),
                         (LuxValue::String(left), LuxValue::String(right)) => Ok(LuxValue::String(left + &right)),
-                        (left, right) => Err(RunTimeError::UnsupportedType(
+                        (left, right) => Err(RuntimeError::UnsupportedType(
                             format!(
                                 "Binary `+` operator can only operate over two numbers or two strings. \
                                 Got types `{}` and `{}`",
@@ -222,7 +226,7 @@ impl Interpreter {
                     BinaryOp::Divide => {
                         if let LuxValue::Number(right_num) = right_val {
                             if right_num == 0.0 {
-                                return Err(RunTimeError::DivideByZero("Cannot divide by zero".to_string()))
+                                return Err(RuntimeError::DivideByZero("Cannot divide by zero".to_string()))
                             }
                         }
                         bin_number_operator!(left_val / right_val, op)
@@ -247,7 +251,7 @@ macro_rules! bin_number_operator {
     ( $left:tt $op:tt $right:tt, $op_token:expr ) => {
         match ($left, $right) {
             (LuxValue::Number(left), LuxValue::Number(right)) => Ok(LuxValue::Number(left $op right)),
-            (left, right) => Err(RunTimeError::UnsupportedType(format!(
+            (left, right) => Err(RuntimeError::UnsupportedType(format!(
                     "Binary `{}` operator can only operate over two numbers. \
                     Got types `{}` and `{}`",
                     stringify!($op),
@@ -265,7 +269,7 @@ macro_rules! bin_comparison_operator {
         match ($left, $right) {
             (LuxValue::Number(left), LuxValue::Number(right)) => Ok(LuxValue::Boolean(left $op right)),
             (LuxValue::String(left), LuxValue::String(right)) => Ok(LuxValue::Boolean(left $op right)),
-            (left, right) => Err(RunTimeError::UnsupportedType(format!(
+            (left, right) => Err(RuntimeError::UnsupportedType(format!(
                     "Binary `{}` operator can only compare two numbers or two strings. \
                     Got types `{}` and `{}`",
                     stringify!($op),

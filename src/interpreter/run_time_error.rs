@@ -1,7 +1,10 @@
+use super::LuxValue;
+
 #[derive(Debug, Clone)]
-pub enum RunTimeError {
+pub enum RuntimeError {
     TypeError(String),
     DivideByZero(String),
     UndefinedVariable(String),
-    UnsupportedType(String)
+    UnsupportedType(String),
+    Return(LuxValue)
 }

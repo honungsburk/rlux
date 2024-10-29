@@ -2,12 +2,12 @@
 //!
 //!
 
-use super::{Environment, LuxValue, RunTimeError};
+use super::{Environment, LuxValue, RuntimeError};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 
 /// Read the current time in milliseconds
-fn clock(_: &[LuxValue]) -> Result<LuxValue, RunTimeError> {
+fn clock(_: &[LuxValue]) -> Result<LuxValue, RuntimeError> {
     let start = SystemTime::now();
     let since_the_epoch = start
         .duration_since(UNIX_EPOCH)
