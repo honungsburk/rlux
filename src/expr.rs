@@ -12,6 +12,7 @@ pub enum Expr {
     Binary(Box<Expr>, BinaryOp, Box<Expr>),
     Variable(String),
     Assignment(String, Box<Expr>),
+    Call(Box<Expr>, Vec<Expr>)
 }
 
 impl Expr {
@@ -62,6 +63,10 @@ impl Expr {
     pub fn assignment(name: String, expr: Expr) -> Expr {
         Expr::Assignment(name, Box::new(expr))
     }
+
+    pub fn call(callee: Expr, arguments: Vec<Expr>) -> Expr {
+        Expr::Call(Box::new(callee), arguments)
+    }
 }
 
 impl StructuralPrinter for Expr {
@@ -86,6 +91,8 @@ impl StructuralPrinter for Expr {
             ),
             Expr::Variable(name) => name.clone(),
             Expr::Assignment(name, expr) => format!("({} = {})", name, expr.print_structural()),
+            Expr::Call(callee, arguments ) => 
+                format!("(({})({}))", callee.print_structural(), arguments.iter().map(|a| a.print_structural()).collect::<Vec<String>>().join(", ")),
         }
     }
 }

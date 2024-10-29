@@ -21,8 +21,8 @@ use crate::{
 /// comparison     → term ( ( ">" | ">=" | "<" | "<=" ) term )* ;
 /// term           → factor ( ( "-" | "+" ) factor )* ;
 /// factor         → unary ( ( "/" | "*" ) unary )* ;
-/// unary          → ( "!" | "-" ) unary
-///                | primary ;
+/// unary          → ( "!" | "-" ) unary | call ;
+/// call           → primary ( "(" arguments? ")" )* ;
 /// primary        → NUMBER | STRING | "true" | "false" | "nil"
 ///                | "(" expression ")" | IDENTIFIER ;
 /// ```
@@ -146,7 +146,43 @@ fn unary(p: &mut Parser) -> Option<Expr> {
         return Some(Expr::unary(operator, right));
     }
 
-    primary(p)
+    calls(p)
+}
+
+fn calls(p: &mut Parser) -> Option<Expr> {
+    let mut expr = primary(p)?;
+
+    while p.check(TokenKind::LeftParen) {
+        expr = call(p, expr)?;
+    }
+
+    Some(expr)
+}
+
+fn call(p: &mut Parser, callee: Expr) -> Option<Expr> {
+    let mut arguments = vec![];
+
+    p.expect(TokenKind::LeftParen)?;
+
+    if !p.check(TokenKind::RightParen) {
+        loop {                                                                      
+            if arguments.len() > 255 {
+                return None;
+            }
+
+            let expr = expression(p)?;
+            arguments.push(expr);
+
+            if !p.is(TokenKind::Comma) {
+                break;
+            }
+        } 
+    }
+
+    p.expect(TokenKind::RightParen)?;
+
+    Some(Expr::call(callee, arguments))
+
 }
 
 fn primary(p: &mut Parser) -> Option<Expr> {

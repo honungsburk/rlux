@@ -1,7 +1,7 @@
 use clap::Arg;
 use clap::ArgAction;
 use clap::Command;
-use rlux::environment::Environment;
+use rlux::interpreter::Interpreter;
 use core::str;
 use std::fs;
 use std::io::{self};
@@ -43,7 +43,7 @@ fn main() {
 }
 
 fn run_prompt() {
-    let mut env = Environment::new();
+    let mut interpreter = Interpreter::new();
     let mut rl = rustyline::DefaultEditor::new().expect("Failed to create editor");
 
     loop {
@@ -51,7 +51,7 @@ fn run_prompt() {
         match readline {
             Ok(line) => {
                 let _ = rl.add_history_entry(line.as_str());
-                match rlux::run(line.trim(), &mut env) {
+                match rlux::run(line.trim(), &mut interpreter) {
                     Some(v) => println!("{}", v.to_string()),
                     None => (),
                 }
@@ -75,7 +75,7 @@ fn run_prompt() {
 fn run_file(path: &str) -> io::Result<()> {
     let bytes = fs::read(Path::new(path))?;
     let content = str::from_utf8(&bytes).expect("Invalid UTF-8 sequence");
-    let mut env = Environment::new();
-    rlux::run(content, &mut env);
+    let mut interpreter = Interpreter::new();
+    rlux::run(content, &mut interpreter);
     Ok(())
 }

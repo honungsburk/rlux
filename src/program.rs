@@ -1,6 +1,7 @@
 use crate::{
-    environment::Environment, expr_eval::Value, parser::Parser, position::{Diagnostic, WithSpan}, run_time_error::RunTimeError, stmt::Stmt, stmt_eval, stmt_parser::{declaration, drop_until_statement}, token::Token
+     parser::Parser, position::{Diagnostic, WithSpan}, stmt::Stmt, stmt_parser::{declaration, drop_until_statement}, token::Token,
 };
+
 
 pub struct Program {
     pub statements: Vec<Stmt>,
@@ -28,13 +29,5 @@ impl Program {
         }
 
         Ok(Self { statements })
-    }
-
-    pub fn run(&self, env: &mut Environment) -> Result<Option<Value>, RunTimeError> {
-        let mut last_val = None;
-        for stmt in &self.statements {
-            last_val = stmt_eval::run(stmt, env)?;
-        }
-        Ok(last_val)
     }
 }

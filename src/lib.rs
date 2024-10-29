@@ -1,5 +1,4 @@
 pub mod expr;
-pub mod expr_eval;
 pub mod expr_parser;
 pub mod parser;
 pub mod position;
@@ -7,16 +6,12 @@ pub mod scanner;
 pub mod token;
 pub mod stmt;
 pub mod stmt_parser;
-pub mod stmt_eval;
 pub mod program;
-pub mod run_time_error;
-pub mod environment;
-
-use environment::Environment;
-use expr_eval::Value;
+pub mod interpreter;
 use scanner::Scanner;
+use interpreter::{Interpreter, LuxValue};
 
-pub fn run(source: &str, env: &mut Environment) -> Option<Value> {
+pub fn run(source: &str, interpreter: &mut Interpreter) -> Option<LuxValue> {
     let line_offsets = position::LineOffsets::new(source);
 
     let mut scanner = Scanner::new(source);
@@ -27,7 +22,7 @@ pub fn run(source: &str, env: &mut Environment) -> Option<Value> {
 
     match program {
         Ok(p) => {
-            match p.run(env) {
+            match interpreter.run(p) {
                 Ok(v) => v,
                 Err(err) => { 
                     eprintln!("{:?}", err); 
