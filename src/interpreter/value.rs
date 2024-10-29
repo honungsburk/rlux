@@ -80,7 +80,7 @@ impl LuxValue {
             decl: Rc::new(FunDecl {
                 name, params, body
             }),
-            env
+            closure: env
         })
 
     }
@@ -204,7 +204,7 @@ pub struct FunDecl {
 #[derive(Debug, Clone)]
 pub struct LuxFunction {
     pub decl: Rc<FunDecl>,
-    pub env: Environment,
+    pub closure: Environment,
 }
 
 impl LuxCallable for LuxFunction {
@@ -213,7 +213,7 @@ impl LuxCallable for LuxFunction {
         interpreter: &mut Interpreter,
         args: &[LuxValue],
     ) -> Result<LuxValue, RuntimeError> {
-        let mut env = Environment::extend(&self.env);
+        let mut env = Environment::extend(&self.closure);
         for (param, value) in self.decl.params.iter().zip(args) {
             env.define(param.clone(), value.clone());
         }

@@ -128,6 +128,7 @@ impl Interpreter {
         // TODO: Use a worklist algorithm to avoid stack overflow
         match expr {
             Expr::Call(callee, arguments) => {
+                
                 let callee = self.eval_expr(callee)?;
                 let args = arguments
                     .iter()
