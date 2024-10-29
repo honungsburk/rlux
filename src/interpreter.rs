@@ -1,7 +1,7 @@
 pub mod value;
 pub mod run_time_error;
 pub mod environment;
-
+pub mod lib;
 
 pub use value::LuxValue;
 pub use value::LuxCallable;
