@@ -19,11 +19,7 @@ impl EnvNode {
     pub fn with_parent(parent: Rc<RefCell<EnvNode>>) -> Self {
         Self { vars: HashMap::new(), parent: Some(parent) }
     }
-
-    pub fn parent(&self) -> Option<Rc<RefCell<EnvNode>>> {
-        self.parent.clone()
-    }
-
+    
     pub fn define(&mut self, name: String, value: LuxValue) {
         self.vars.insert(name, value);
     }
@@ -47,7 +43,7 @@ impl EnvNode {
                 None => None,
             }
         }
-    }    
+    }
 }
 
 
@@ -96,6 +92,14 @@ impl Environment {
     pub fn assign(&mut self, name: String, value: LuxValue) -> bool {
         self.node.borrow_mut().assign(name, value)
     }
+    
+    pub fn assign_at(&mut self, name: String, value: LuxValue, depth: usize) -> bool {
+        if let Some(mut ancestor) = self.ancestor(depth) {
+            ancestor.assign(name, value)
+        } else {
+            false
+        }
+    }
 
     pub fn get(&self, name: &str) -> Option<LuxValue> {
         self.node.borrow().get(name)
@@ -104,6 +108,20 @@ impl Environment {
     pub fn define(&mut self, name: String, value: LuxValue) {
         self.node.borrow_mut().define(name, value);
     }
+
+    pub fn get_at(&self, name: &str, depth: usize) -> Option<LuxValue> {
+        let ancestor = self.ancestor(depth)?;
+        ancestor.get(name)
+    }
+
+    fn ancestor(&self, depth: usize) -> Option<Environment> {
+        let mut current = self.clone();
+        for _ in 0..depth {
+            current = current.pop()?;
+        }
+        Some(current)
+    }
+
 }
 
 
@@ -136,18 +154,33 @@ mod tests {
     #[test]
     fn test_can_get_variables_from_parent_env() {
         let mut env = Environment::new();
-        env.define("a".to_string(), LuxValue::String("a".to_string()));
+        env.define("a".to_string(), LuxValue::string("a"));
         let child = env.extend();
-        assert_eq!(child.get("a"), Some(LuxValue::String("a".to_string())));
+        assert_eq!(child.get("a"), Some(LuxValue::string("a")));
     }
 
     #[test]
     fn test_can_assign_to_parent_env() {
         let mut env = Environment::new();
-        env.define("a".to_string(), LuxValue::String("a".to_string()));
+        env.define("a".to_string(), LuxValue::string("a"));
         let mut child = env.extend();
-        child.assign("a".to_string(), LuxValue::String("b".to_string()));
-        assert_eq!(env.get("a"), Some(LuxValue::String("b".to_string())));
+        child.assign("a".to_string(), LuxValue::string("b"));
+        assert_eq!(env.get("a"), Some(LuxValue::string("b")));
+    }
+
+
+    #[test]
+    fn test_can_assign_at_depth() {
+        let mut env = Environment::new();
+        env.define("a".to_string(), LuxValue::string("a"));
+        let mut child = env.extend();
+        child.define("a".to_string(), LuxValue::string("b"));
+        child.assign_at("a".to_string(), LuxValue::string("c"),1);
+
+
+        assert_eq!(env.get("a"), Some(LuxValue::string("c")));
+        assert_eq!(child.get("a"), Some(LuxValue::string("b")));
+        assert_eq!(child.get_at("a", 1), Some(LuxValue::string("c")));
     }
 
 }

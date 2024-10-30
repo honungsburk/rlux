@@ -3,6 +3,7 @@ pub mod run_time_error;
 pub mod environment;
 pub mod lib;
 
+use std::collections::HashMap;
 use std::mem;
 
 pub use value::LuxValue;
@@ -17,6 +18,7 @@ use crate::program::Program;
 pub struct Interpreter {
     globals: Environment,
     env: Environment,
+    locals: HashMap<String, usize>,
 }
 
 
@@ -26,8 +28,9 @@ impl Interpreter {
         let mut globals = Environment::new();
         lib::load(&mut globals); 
         Self {
-            env: globals.extend(),
+            env: globals.clone(),
             globals: globals,
+            locals: HashMap::new()
         }
     }
 
@@ -35,13 +38,26 @@ impl Interpreter {
         Self {
             env: env.extend(),
             globals: env,
+            locals: HashMap::new()
         }
     }
 
-    pub fn run(&mut self, program: Program) -> Result<Option<LuxValue>, RuntimeError> {
+    pub fn run(&mut self, program: &Program) -> Result<Option<LuxValue>, RuntimeError> {
         self.eval_stmts(&program.statements)
     }
 
+
+    pub fn resolve_local(&mut self, id: &str, depth: usize) {
+        self.locals.insert(id.to_string(), depth);
+    }
+
+    pub fn lookup_variable(&mut self, id: &str) -> Option<LuxValue> {
+        if let Some(depth) = self.locals.get(id) {
+            self.env.get_at(id,*depth)
+        } else {
+            self.globals.get(id)
+        }
+    }
 
     //
     // Statements
@@ -128,7 +144,7 @@ impl Interpreter {
         // TODO: Use a worklist algorithm to avoid stack overflow
         match expr {
             Expr::Call(callee, arguments) => {
-                
+
                 let callee = self.eval_expr(callee)?;
                 let args = arguments
                     .iter()
@@ -174,13 +190,20 @@ impl Interpreter {
             }
             Expr::Assignment(name, expr) => {
                 let val = self.eval_expr(expr)?;
-                if self.env.assign(name.clone(), val.clone()) {
+
+                let success = if let Some(depth) = self.locals.get(name) {
+                    self.env.assign_at(name.clone(), val.clone(), *depth)
+                } else {
+                    self.globals.assign(name.clone(), val.clone())
+                };
+
+                if success {
                     Ok(val)
                 } else {
                     Err(RuntimeError::UndefinedVariable(name.clone()))
                 }
             }
-            Expr::Variable(name) => self.env.get(name).map(|v| v.clone()).ok_or(RuntimeError::UndefinedVariable(name.clone())),
+            Expr::Variable(name) => self.lookup_variable(name).ok_or(RuntimeError::UndefinedVariable(name.clone())),
             Expr::Number(n) => Ok(LuxValue::Number(*n)),
             Expr::String(s) => Ok(LuxValue::String(s.clone())),
             Expr::True => Ok(LuxValue::Boolean(true)),

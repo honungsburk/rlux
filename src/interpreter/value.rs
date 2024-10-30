@@ -47,8 +47,8 @@ impl LuxValue {
         LuxValue::Number(n)
     }
 
-    pub fn string(s: String) -> Self {
-        LuxValue::String(s)
+    pub fn string(s: &str) -> Self {
+        LuxValue::String(s.to_string())
     }
 
     pub fn callable<T>(callable: T) -> Self

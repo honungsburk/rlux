@@ -7,6 +7,10 @@ pub mod ast;
 pub mod stmt_parser;
 pub mod program;
 pub mod interpreter;
+pub mod resolver;
+
+use position::{Diagnostic, Span};
+use resolver::Resolver;
 use scanner::Scanner;
 use interpreter::{Interpreter, LuxValue};
 
@@ -17,17 +21,25 @@ pub fn run(source: &str, interpreter: &mut Interpreter) -> Option<LuxValue> {
 
     let tokens = scanner.run();
 
-    let program = program::Program::parse(&tokens);
-
-    match program {
-        Ok(p) => {
-            match interpreter.run(p) {
-                Ok(v) => v,
-                Err(err) => { 
-                    eprintln!("{:?}", err); 
-                    None 
-                }
-            }
+    let result = program::Program::parse(&tokens).and_then(|p| {
+            Resolver::new(interpreter).run(&p)?;
+            Ok(p)
+        }).and_then(|p| {
+            interpreter.run(&p)
+                .map_err(|err| {
+                    vec![
+                        Diagnostic {
+                            span: Span::empty(), 
+                            message: format!("{:?}", err)
+                        }
+                        ]
+                    }
+                )
+        });
+    
+    match result {
+        Ok(v) => {
+            v
         }
         Err(diagnostics) => {
             for diagnostic in diagnostics {
